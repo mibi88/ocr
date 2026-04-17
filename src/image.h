@@ -43,11 +43,15 @@ struct image {
 enum {
     IE_SUCCESS,
     IE_OPEN,
-    IE_WRITE,
     IE_READ,
+    IE_WRITE,
     IE_SIG,
     IE_UNSUPPORTED,
     IE_UNKNOWN
+};
+
+enum {
+    IT_BMP
 };
 
 char *image_get_error_str(int error);

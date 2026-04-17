@@ -40,8 +40,9 @@
 char *image_get_error_str(int error) {
     char *errors[] = {
         STR(IE_SUCCESS),
-        STR(IE_NOT_FOUND),
+        STR(IE_OPEN),
         STR(IE_READ),
+        STR(IE_WRITE),
         STR(IE_SIG),
         STR(IE_UNSUPPORTED),
         STR(IE_UNKNOWN)
@@ -62,7 +63,7 @@ int image_load(struct image *img, char *file) {
     fp = fopen(file, "rb");
 
     if(fp == NULL){
-        return IE_NOT_FOUND;
+        return IE_OPEN;
     }
 
     if(fread(sig, 1, 2, fp) != 2){
@@ -246,9 +247,100 @@ int image_load(struct image *img, char *file) {
 int image_write(struct image *img, char *file, int type, int flags) {
     FILE *fp;
 
-    fp = fopen(file, "w");
+    fp = fopen(file, "wb");
+
+    if(fp == NULL){
+        return IE_OPEN;
+    }
+
+    switch(type){
+        case IT_BMP:
+            {
+                unsigned char b[4];
+                size_t size = 54+img->w*img->h*4;
+
+                if(fwrite("BM", 1, 2, fp) != 2){
+                    fclose(fp);
+
+                    return IE_WRITE;
+                }
+
+                b[0] = size;
+                b[1] = size<<8;
+                b[2] = size<<16;
+                b[3] = size<<24;
+
+                if(fwrite(b, 1, 4, fp) != 4){
+                    fclose(fp);
+
+                    return IE_WRITE;
+                }
+
+                b[0] = 0;
+                b[1] = 0;
+                b[2] = 0;
+                b[3] = 0;
+
+                if(fwrite(b, 1, 4, fp) != 4){
+                    fclose(fp);
+
+                    return IE_WRITE;
+                }
+
+                b[0] = 54;
+
+                if(fwrite(b, 1, 4, fp) != 4){
+                    fclose(fp);
+
+                    return IE_WRITE;
+                }
+
+                b[0] = 40;
+
+                if(fwrite(b, 1, 4, fp) != 4){
+                    fclose(fp);
+
+                    return IE_WRITE;
+                }
+
+                b[0] = img->w;
+                b[1] = img->w<<8;
+                b[2] = img->w<<16;
+                b[3] = img->w<<24;
+
+                if(fwrite(b, 1, 4, fp) != 4){
+                    fclose(fp);
+
+                    return IE_WRITE;
+                }
+
+                b[0] = img->h;
+                b[1] = img->h<<8;
+                b[2] = img->h<<16;
+                b[3] = img->h<<24;
+
+                if(fwrite(b, 1, 4, fp) != 4){
+                    fclose(fp);
+
+                    return IE_WRITE;
+                }
+
+                b[0] = 1;
+                b[1] = 0;
+
+                if(fwrite(b, 1, 4, fp) != 4){
+                    fclose(fp);
+
+                    return IE_WRITE;
+                }
+                
+            }
+            break;
+    }
 
     fclose(fp);
+
+    return IE_SUCCESS;
 }
 
 void image_free(struct image *img) {
