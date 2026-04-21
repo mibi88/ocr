@@ -35,9 +35,16 @@
 
 #include <stddef.h>
 
+#if UINT_MAX >= 4294967295
+typedef unsigned int pixel_t;
+#else
+typedef unsigned long pixel_t;
+#endif
+
 struct image {
     size_t w, h;
-    unsigned char *data;
+    unsigned long ppi;
+    pixel_t *data;
 };
 
 enum {
@@ -46,6 +53,7 @@ enum {
     IE_READ,
     IE_WRITE,
     IE_SIG,
+    IE_MEM,
     IE_UNSUPPORTED,
     IE_UNKNOWN
 };
@@ -57,6 +65,10 @@ enum {
 char *image_get_error_str(int error);
 
 int image_load(struct image *img, char *file);
+
+int image_write(struct image *img, char *file, int type, int flags);
+
+int image_create(struct image *img, size_t width, size_t height, size_t ppi);
 
 void image_free(struct image *img);
 

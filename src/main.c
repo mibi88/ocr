@@ -43,11 +43,35 @@ int main(int argc, char **argv) {
     struct image img;
     int rc;
 
+    size_t x, y;
+
     atexit(e);
+
+    if((rc = image_create(&img, 32, 32, 72))){
+        puts(image_get_error_str(rc));
+        return 1;
+    }
+
+    img.data[33] = 0xFFFFFF;
+
+    if((rc = image_write(&img, "test.bmp", IT_BMP, 0))){
+        puts(image_get_error_str(rc));
+        return 1;
+    }
+
+    image_free(&img);
 
     if((rc = image_load(&img, "../letter_a.bmp"))){
         puts(image_get_error_str(rc));
         return 1;
+    }
+
+    for(y=0;y<img.h;y++){
+        for(x=0;x<img.w;x++){
+            //fputc(img.data[y*img.w+x] ? '#' : '.', stdout);
+            printf("%010lx ", img.data[y*img.w+x]);
+        }
+        fputc('\n', stdout);
     }
 
     image_free(&img);

@@ -33,6 +33,7 @@
 #include "image.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define STR(s) #s
@@ -44,6 +45,7 @@ char *image_get_error_str(int error) {
         STR(IE_READ),
         STR(IE_WRITE),
         STR(IE_SIG),
+        STR(IE_MEM),
         STR(IE_UNSUPPORTED),
         STR(IE_UNKNOWN)
     };
@@ -72,7 +74,7 @@ int image_load(struct image *img, char *file) {
         return IE_READ;
     }
 
-    if(strcmp(sig, "BM")){
+    if(strcmp(sig, "\x42\x4D")){
         fclose(fp);
 
         return IE_SIG;
@@ -121,12 +123,16 @@ int image_load(struct image *img, char *file) {
                 size_t height;
                 unsigned short int color_planes;
                 unsigned short int bpp;
-                size_t compression;
+                unsigned long int ppi;
+                unsigned long int compression;
+                size_t padding;
                 size_t raw_size;
                 size_t hpxpm;
                 size_t vpxpm;
                 size_t colors;
                 size_t important;
+
+                size_t x, y;
 
                 /* 4 byte width */
                 if(fread(b, 1, 4, fp) != 4){
@@ -147,7 +153,7 @@ int image_load(struct image *img, char *file) {
                 height = b[0]|(b[1]<<8)|(b[2]<<16)|(b[3]<<24);
 
                 /* 2 byte color plane count */
-                if(fread(b, 1, 4, fp) != 4){
+                if(fread(b, 1, 2, fp) != 2){
                     fclose(fp);
 
                     return IE_READ;
@@ -156,7 +162,7 @@ int image_load(struct image *img, char *file) {
                 color_planes = b[0]|(b[1]<<8);
 
                 /* 2 byte bits per pixel */
-                if(fread(b, 1, 4, fp) != 4){
+                if(fread(b, 1, 2, fp) != 2){
                     fclose(fp);
 
                     return IE_READ;
@@ -219,6 +225,9 @@ int image_load(struct image *img, char *file) {
 
                 important = b[0]|(b[1]<<8)|(b[2]<<16)|(b[3]<<24);
 
+                ppi = (hpxpm+vpxpm)/(39*2);
+
+#if 1
                 printf("width:          %lu\n"
                        "height:         %lu\n"
                        "color_planes:   %lu\n"
@@ -227,10 +236,57 @@ int image_load(struct image *img, char *file) {
                        "raw_size:       %lu\n"
                        "hpxpm:          %lu\n"
                        "vpxpm:          %lu\n"
+                       "ppi:            %lu\n"
                        "colors:         %lu\n"
                        "important:      %lu\n",
                        width, height, color_planes, bpp, compression,
-                       raw_size, hpxpm, vpxpm, colors, important);
+                       raw_size, hpxpm, vpxpm, ppi, colors, important);
+#endif
+                img->data = malloc(width*height*sizeof(pixel_t));
+
+                if(img->data == NULL){
+                    fclose(fp);
+
+                    return IE_MEM;
+                }
+
+                //padding = width%4 ? 4-width%4 : 0;
+                padding = width%4;
+                printf("%lu\n", padding);
+
+                if(bpp >= 24){
+                    b[0] = 0;
+                    b[1] = 0;
+                    b[2] = 0;
+                    b[3] = 0;
+                    for(y=0;y<height;y++){
+                        for(x=0;x<width;x++){
+                            if(fread(b, 1, bpp/8, fp) != bpp/8){
+                                fclose(fp);
+
+                                return IE_READ;
+                            }
+                            img->data[y*img->w+x] = b[0]|(b[1]<<8)|(b[2]<<16)|
+                                                    (b[3]<<24);
+                        }
+                        fseek(fp, padding, SEEK_CUR);
+                    }
+                }else{
+                    size_t pal;
+
+                    pal = ftell(fp);
+
+                    /* TODO */
+
+                    fclose(fp);
+                    free(img->data);
+
+                    return IE_UNSUPPORTED;
+                }
+
+                img->w = width;
+                img->h = height;
+                img->ppi = ppi;
             }
 
             break;
@@ -256,84 +312,106 @@ int image_write(struct image *img, char *file, int type, int flags) {
     switch(type){
         case IT_BMP:
             {
-                unsigned char b[4];
+                size_t x, y;
+
+                unsigned char b[56];
                 size_t size = 54+img->w*img->h*4;
 
-                if(fwrite("BM", 1, 2, fp) != 2){
+                size_t hpxpm = img->ppi*39;
+                size_t vpxpm = img->ppi*39;
+
+                b[0] = 0x42; /* ASCII 'B' */
+                b[1] = 0x4D; /* ASCII 'M' */
+
+                b[2] = size;
+                b[3] = size>>8;
+                b[4] = size>>16;
+                b[5] = size>>24;
+
+                b[6] = 0;
+                b[7] = 0;
+                b[8] = 0;
+                b[9] = 0;
+
+                b[10] = 0;
+                b[11] = 0;
+                b[12] = 0;
+                b[13] = 56;
+
+                b[14] = 0;
+                b[15] = 0;
+                b[16] = 0;
+                b[17] = 40;
+
+                b[18] = img->w;
+                b[19] = img->w>>8;
+                b[20] = img->w>>16;
+                b[21] = img->w>>24;
+
+                b[22] = img->h;
+                b[23] = img->h>>8;
+                b[24] = img->h>>16;
+                b[25] = img->h>>24;
+
+                b[26] = 1;
+                b[27] = 0;
+
+                b[28] = 32;
+                b[29] = 0;
+
+                b[30] = 0;
+                b[31] = 0;
+                b[32] = 0;
+                b[33] = 0;
+
+                b[34] = 0;
+                b[35] = 0;
+                b[36] = 0;
+                b[37] = 0;
+
+                b[38] = hpxpm;
+                b[39] = hpxpm>>8;
+                b[40] = hpxpm>>16;
+                b[41] = hpxpm>>24;
+
+                b[42] = vpxpm;
+                b[43] = vpxpm>>8;
+                b[44] = vpxpm>>16;
+                b[45] = vpxpm>>24;
+
+                b[46] = 0;
+                b[47] = 0;
+                b[48] = 0;
+                b[49] = 0;
+
+                b[50] = 0;
+                b[51] = 0;
+                b[52] = 0;
+                b[53] = 0;
+
+                if(fwrite(b, 1, 54, fp) != 54){
                     fclose(fp);
 
                     return IE_WRITE;
                 }
 
-                b[0] = size;
-                b[1] = size<<8;
-                b[2] = size<<16;
-                b[3] = size<<24;
+                /* TODO: Make things more efficient. */
+                for(y=0;y<img->h;y++){
+                    for(x=0;x<img->w;x++){
+                        pixel_t p = img->data[y*img->w+x];
 
-                if(fwrite(b, 1, 4, fp) != 4){
-                    fclose(fp);
+                        b[0] = p;
+                        b[1] = p>>8;
+                        b[2] = p>>16;
+                        b[3] = p>>24;
 
-                    return IE_WRITE;
+                        if(fwrite(b, 1, 4, fp) != 4){
+                            fclose(fp);
+
+                            return IE_WRITE;
+                        }
+                    }
                 }
-
-                b[0] = 0;
-                b[1] = 0;
-                b[2] = 0;
-                b[3] = 0;
-
-                if(fwrite(b, 1, 4, fp) != 4){
-                    fclose(fp);
-
-                    return IE_WRITE;
-                }
-
-                b[0] = 54;
-
-                if(fwrite(b, 1, 4, fp) != 4){
-                    fclose(fp);
-
-                    return IE_WRITE;
-                }
-
-                b[0] = 40;
-
-                if(fwrite(b, 1, 4, fp) != 4){
-                    fclose(fp);
-
-                    return IE_WRITE;
-                }
-
-                b[0] = img->w;
-                b[1] = img->w<<8;
-                b[2] = img->w<<16;
-                b[3] = img->w<<24;
-
-                if(fwrite(b, 1, 4, fp) != 4){
-                    fclose(fp);
-
-                    return IE_WRITE;
-                }
-
-                b[0] = img->h;
-                b[1] = img->h<<8;
-                b[2] = img->h<<16;
-                b[3] = img->h<<24;
-
-                if(fwrite(b, 1, 4, fp) != 4){
-                    fclose(fp);
-
-                    return IE_WRITE;
-                }
-
-                b[0] = 1;
-                b[1] = 0;
-
-                if(fwrite(b, 1, 4, fp) != 4){
-                    fclose(fp);
-
-                    return IE_WRITE;
-                }
-                
             }
             break;
     }
@@ -343,7 +421,27 @@ int image_write(struct image *img, char *file, int type, int flags) {
     return IE_SUCCESS;
 }
 
+int image_create(struct image *img, size_t width, size_t height, size_t ppi) {
+    img->data = malloc(sizeof(pixel_t)*width*height);
+
+    if(img->data == NULL){
+
+        return IE_MEM;
+    }
+
+    img->w = width;
+    img->h = height;
+
+    img->ppi = ppi;
+
+    return IE_SUCCESS;
+}
+
 void image_free(struct image *img) {
-    /**/
+    free(img->data);
+    img->data = NULL;
+    img->w = 0;
+    img->h = 0;
+    img->ppi = 0;
 }
 
