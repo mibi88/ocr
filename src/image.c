@@ -260,6 +260,8 @@ int image_load(struct image *img, char *file) {
                 printf("%lu\n", padding);
 
                 if(bpp >= 24){
+                    fseek(fp, data_offset, SEEK_SET);
+
                     b[0] = 0;
                     b[1] = 0;
                     b[2] = 0;
@@ -273,6 +275,10 @@ int image_load(struct image *img, char *file) {
                             }
                             img->data[y*width+x] = b[0]|(b[1]<<8)|(b[2]<<16)|
                                                    (b[3]<<24);
+                            if(bpp < 32){
+                                img->data[y*width+x] <<= 32-bpp;
+                                img->data[y*width+x] |= (1<<(32-bpp))-1;
+                            }
                         }
                         fseek(fp, padding, SEEK_CUR);
                     }
@@ -339,15 +345,15 @@ int image_write(struct image *img, char *file, int type, int flags) {
                 b[8] = 0;
                 b[9] = 0;
 
-                b[10] = 0;
+                b[10] = 54;
                 b[11] = 0;
                 b[12] = 0;
-                b[13] = 56;
+                b[13] = 0;
 
-                b[14] = 0;
+                b[14] = 40;
                 b[15] = 0;
                 b[16] = 0;
-                b[17] = 40;
+                b[17] = 0;
 
                 b[18] = img->w;
                 b[19] = img->w>>8;
@@ -402,14 +408,14 @@ int image_write(struct image *img, char *file, int type, int flags) {
                 }
 
                 /* TODO: Make things more efficient. */
-                for(y=0;y<img->h;y++){
+                for(y=img->h;y--;){
                     for(x=0;x<img->w;x++){
                         pixel_t p = img->data[y*img->w+x];
 
-                        b[0] = p;
-                        b[1] = p>>8;
-                        b[2] = p>>16;
-                        b[3] = p>>24;
+                        b[0] = p>>8;
+                        b[1] = p>>16;
+                        b[2] = p>>24;
+                        b[3] = p;
 
                         if(fwrite(b, 1, 4, fp) != 4){
                             fclose(fp);

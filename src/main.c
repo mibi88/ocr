@@ -61,15 +61,15 @@ int main(int argc, char **argv) {
 
     image_free(&img);
 
-    if((rc = image_load(&img, "test.bmp"))){
+    if((rc = image_load(&img, "../letter_a.bmp"))){
         puts(image_get_error_str(rc));
         return 1;
     }
 
     for(y=0;y<img.h;y++){
         for(x=0;x<img.w;x++){
-            fputc(img.data[y*img.w+x] ? '.' : '#', stdout);
-            /*printf("%010lx ", img.data[y*img.w+x]);*/
+            /*fputc(img.data[y*img.w+x] ? '.' : '#', stdout);*/
+            printf("%08x ", img.data[y*img.w+x]);
         }
         fputc('\n', stdout);
     }
