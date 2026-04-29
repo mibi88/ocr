@@ -110,10 +110,6 @@ int image_load(struct image *img, char *file) {
 
     header_size = b[0]|(b[1]<<8)|(b[2]<<16)|(b[3]<<24);
 
-#if 0
-    printf("%lu, %lu, %lu\n", size, data_offset, header_size);
-#endif
-
     switch(header_size){
         case 40:
             /* BITMAPINFOHEADER */
@@ -233,7 +229,7 @@ int image_load(struct image *img, char *file) {
 
                 ppi = (hpxpm+vpxpm)/(39*2);
 
-#if 0
+#if DEBUG_IMAGE_READ
                 printf("width:          %lu\n"
                        "height:         %lu\n"
                        "color_planes:   %lu\n"
@@ -257,9 +253,6 @@ int image_load(struct image *img, char *file) {
                 }
 
                 padding = width%4;
-#if 0
-                printf("%lu\n", padding);
-#endif
 
                 if(bpp >= 24){
                     fseek(fp, data_offset, SEEK_SET);
@@ -301,6 +294,13 @@ int image_load(struct image *img, char *file) {
             break;
         default:
             /* Unsupported bitmap format */
+#if DEBUG_IMAGE_READ
+            printf("size:           %lu\n"
+                   "header size:    %lu\n"
+                   "data offset:    %lu\n",
+                   size, header_size, data_offset);
+#endif
+
             fclose(fp);
             return IE_UNSUPPORTED;
     }
