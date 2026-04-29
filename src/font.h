@@ -53,8 +53,19 @@ struct point {
 };
 
 struct glyph {
-    font_u32_t contour_ends;
     struct point *points;
+    font_u32_t point_count;
+
+    font_u32_t *contour_ends;
+    font_u32_t contour_count;
+
+    font_u32_t advance_width;
+    font_s32_t left_side_bearing;
+
+    font_s32_t xmin, ymin;
+    font_s32_t xmax, ymax;
+
+    font_u32_t code;
 };
 
 struct dir {
@@ -65,10 +76,10 @@ struct dir {
 };
 
 struct cmap {
-    unsigned int format : 16;
-    unsigned int platform_id : 16;
     font_u32_t group_num;
     font_u32_t data_cur;
+    unsigned int format : 16;
+    unsigned int platform_id : 16;
 };
 
 struct font {
