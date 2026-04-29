@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    img.data[33] = 0xFFFFFF;
+    img.data[33] = 0xFFFFFF00;
 
     if((rc = image_write(&img, "test.bmp", IT_BMP, 0))){
         puts(image_get_error_str(rc));
@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
 
     image_free(&img);
 
-    if((rc = image_load(&img, "../letter_a.bmp"))){
+    if((rc = image_load(&img, "test.bmp"))){
         puts(image_get_error_str(rc));
         return 1;
     }

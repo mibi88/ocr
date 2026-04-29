@@ -110,7 +110,7 @@ int image_load(struct image *img, char *file) {
 
     header_size = b[0]|(b[1]<<8)|(b[2]<<16)|(b[3]<<24);
 
-#if 1
+#if 0
     printf("%lu, %lu, %lu\n", size, data_offset, header_size);
 #endif
 
@@ -233,7 +233,7 @@ int image_load(struct image *img, char *file) {
 
                 ppi = (hpxpm+vpxpm)/(39*2);
 
-#if 1
+#if 0
                 printf("width:          %lu\n"
                        "height:         %lu\n"
                        "color_planes:   %lu\n"
@@ -257,7 +257,9 @@ int image_load(struct image *img, char *file) {
                 }
 
                 padding = width%4;
+#if 0
                 printf("%lu\n", padding);
+#endif
 
                 if(bpp >= 24){
                     fseek(fp, data_offset, SEEK_SET);
@@ -265,7 +267,7 @@ int image_load(struct image *img, char *file) {
                     b[0] = 0;
                     b[1] = 0;
                     b[2] = 0;
-                    b[3] = 0;
+                    b[3] = 0xFF;
                     for(y=height;y--;){
                         for(x=0;x<width;x++){
                             if(fread(b, 1, bpp/8, fp) != bpp/8){
@@ -275,10 +277,6 @@ int image_load(struct image *img, char *file) {
                             }
                             img->data[y*width+x] = b[0]|(b[1]<<8)|(b[2]<<16)|
                                                    (b[3]<<24);
-                            if(bpp < 32){
-                                img->data[y*width+x] <<= 32-bpp;
-                                img->data[y*width+x] |= (1<<(32-bpp))-1;
-                            }
                         }
                         fseek(fp, padding, SEEK_CUR);
                     }
@@ -412,10 +410,10 @@ int image_write(struct image *img, char *file, int type, int flags) {
                     for(x=0;x<img->w;x++){
                         pixel_t p = img->data[y*img->w+x];
 
-                        b[0] = p>>8;
-                        b[1] = p>>16;
-                        b[2] = p>>24;
-                        b[3] = p;
+                        b[0] = p;
+                        b[1] = p>>8;
+                        b[2] = p>>16;
+                        b[3] = p>>24;
 
                         if(fwrite(b, 1, 4, fp) != 4){
                             fclose(fp);
