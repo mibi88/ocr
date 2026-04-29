@@ -130,6 +130,8 @@ int image_load(struct image *img, char *file) {
 
                 size_t x, y;
 
+                /* TODO: Read the whole header at once. */
+
                 /* 4 byte width */
                 if(fread(b, 1, 4, fp) != 4){
                     fclose(fp);

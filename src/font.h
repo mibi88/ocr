@@ -30,60 +30,71 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include <stdlib.h>
-#include <stdio.h>
+#ifndef FONT_H
+#define FONT_H
 
-#include "image.h"
-
-void e(void) {
-    getchar();
-}
-
-int main(int argc, char **argv) {
-    struct image img;
-    int rc;
-
-    size_t x, y;
-
-#if (defined(_WIN32) || defined(_WIN64)) && DEBUG
-    atexit(e);
+#if UINT_MAX >= 4294967295
+typedef unsigned int font_u32_t;
+typedef int font_s32_t;
+#else
+typedef unsigned long font_u32_t;
+typedef long font_s32_t;
 #endif
 
-#if 0
-
-    if((rc = image_create(&img, 32, 32, 72))){
-        puts(image_get_error_str(rc));
-        return 1;
-    }
-
-    img.data[33] = IMAGE_RGBAINT(255, 255, 0, 255);
-
-    if((rc = image_write(&img, "test.bmp", IT_BMP, 0))){
-        puts(image_get_error_str(rc));
-        return 1;
-    }
-
-    image_free(&img);
-
-    if((rc = image_load(&img, "test.bmp"))){
-        puts(image_get_error_str(rc));
-        return 1;
-    }
-
-    for(y=0;y<img.h;y++){
-        for(x=0;x<img.w;x++){
-            fputc(img.data[y*img.w+x]&IMAGE_RGBAINT(255, 255, 255, 0) ?
-                  '.' : '#', stdout);
-            /*printf("%08x ", img.data[y*img.w+x]);*/
-        }
-        fputc('\n', stdout);
-    }
-
-    image_free(&img);
-
+#if TWOS_COMPLEMENT
+typedef short font_s16_t;
+#else
+typedef long font_s16_t;
 #endif
 
+struct point {
+    font_s32_t x, y;
+    unsigned char on_curve;
+};
 
+struct glyph {
+    font_u32_t contour_ends;
+    struct point *points;
+};
 
-    return 0;
-}
+struct dir {
+    font_u32_t tag;
+    font_u32_t checksum;
+    font_u32_t offset;
+    font_u32_t size;
+};
+
+struct cmap {
+    unsigned int format : 16;
+    unsigned int platform_id : 16;
+    font_u32_t group_num;
+    font_u32_t data_cur;
+};
+
+struct font {
+    unsigned int table_count : 16;
+
+    unsigned int glyph_count : 16;
+    unsigned int simple_points_max : 16;
+
+    unsigned int units_per_em : 16;
+
+    font_s16_t long_offsets;
+
+    font_u32_t best_map;
+    struct cmap cmap;
+
+    font_u32_t glyf_table_pos;
+    font_u32_t maxp_table_pos;
+    font_u32_t loca_table_pos;
+    font_u32_t cmap_table_pos;
+    font_u32_t htmx_table_pos;
+
+    unsigned int added_contours : 16;
+    unsigned int advance_width_count : 16;
+
+    unsigned char flags;
+    struct dir *dirs;
+};
+
+#endif
