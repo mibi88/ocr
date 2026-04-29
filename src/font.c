@@ -31,3 +31,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include "font.h"
+
+int font_load(struct font *font, char *file) {
+
+    return 0;
+}
+
+void font_free(void) {
+
+}
