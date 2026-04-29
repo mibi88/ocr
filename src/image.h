@@ -34,6 +34,7 @@
 #define IMAGE_H
 
 #include <stddef.h>
+#include <limits.h>
 
 #if UINT_MAX >= 4294967295
 typedef unsigned int pixel_t;
@@ -61,6 +62,8 @@ enum {
 enum {
     IT_BMP
 };
+
+#define IMAGE_RGBAINT(r, g, b, a) ((b)|((g)<<8)|((r)<<16)|((a)<<24))
 
 char *image_get_error_str(int error);
 

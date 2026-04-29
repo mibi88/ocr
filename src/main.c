@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    img.data[33] = 0xFFFFFF00;
+    img.data[33] = IMAGE_RGBAINT(255, 255, 0, 255);
 
     if((rc = image_write(&img, "test.bmp", IT_BMP, 0))){
         puts(image_get_error_str(rc));
@@ -68,8 +68,9 @@ int main(int argc, char **argv) {
 
     for(y=0;y<img.h;y++){
         for(x=0;x<img.w;x++){
-            /*fputc(img.data[y*img.w+x] ? '.' : '#', stdout);*/
-            printf("%08x ", img.data[y*img.w+x]);
+            fputc(img.data[y*img.w+x]&IMAGE_RGBAINT(255, 255, 255, 0) ?
+                  '.' : '#', stdout);
+            /*printf("%08x ", img.data[y*img.w+x]);*/
         }
         fputc('\n', stdout);
     }
