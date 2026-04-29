@@ -110,7 +110,7 @@ int image_load(struct image *img, char *file) {
 
     header_size = b[0]|(b[1]<<8)|(b[2]<<16)|(b[3]<<24);
 
-#if 0
+#if 1
     printf("%lu, %lu, %lu\n", size, data_offset, header_size);
 #endif
 
@@ -119,8 +119,8 @@ int image_load(struct image *img, char *file) {
             /* BITMAPINFOHEADER */
 
             {
-                size_t width;
-                size_t height;
+                unsigned long int width;
+                unsigned long int height;
                 unsigned short int color_planes;
                 unsigned short int bpp;
                 unsigned long int ppi;
@@ -142,6 +142,12 @@ int image_load(struct image *img, char *file) {
                 }
 
                 width = b[0]|(b[1]<<8)|(b[2]<<16)|(b[3]<<24);
+                if(width&(1<<31)){
+                    width = ~width+1;
+                    /* TODO: Flip the image */
+                    fclose(fp);
+                    return IE_UNSUPPORTED;
+                }
 
                 /* 4 byte height */
                 if(fread(b, 1, 4, fp) != 4){
@@ -250,7 +256,6 @@ int image_load(struct image *img, char *file) {
                     return IE_MEM;
                 }
 
-                //padding = width%4 ? 4-width%4 : 0;
                 padding = width%4;
                 printf("%lu\n", padding);
 
@@ -259,15 +264,15 @@ int image_load(struct image *img, char *file) {
                     b[1] = 0;
                     b[2] = 0;
                     b[3] = 0;
-                    for(y=0;y<height;y++){
+                    for(y=height;y--;){
                         for(x=0;x<width;x++){
                             if(fread(b, 1, bpp/8, fp) != bpp/8){
                                 fclose(fp);
 
                                 return IE_READ;
                             }
-                            img->data[y*img->w+x] = b[0]|(b[1]<<8)|(b[2]<<16)|
-                                                    (b[3]<<24);
+                            img->data[y*width+x] = b[0]|(b[1]<<8)|(b[2]<<16)|
+                                                   (b[3]<<24);
                         }
                         fseek(fp, padding, SEEK_CUR);
                     }
@@ -292,7 +297,8 @@ int image_load(struct image *img, char *file) {
             break;
         default:
             /* Unsupported bitmap format */
-            break;
+            fclose(fp);
+            return IE_UNSUPPORTED;
     }
 
     fclose(fp);
