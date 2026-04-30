@@ -30,10 +30,37 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#include <stdio.h>
+
+#define FONT_IMPL
+
 #include "font.h"
 
+#define STR(s) #s,
+#define STR_LAST(s) #s
+
+char *font_get_error_str(int error) {
+    char *errors[] = {
+        FONT_ERROR_X(STR, STR_LAST)
+    };
+
+    return errors[error];
+}
+
 int font_load(struct font *font, char *file) {
+    FILE *fp;
+
+    unsigned char b[4+2+3*2];
+
+    fp = fopen(file, "rb");
+    if(fp == NULL){
+
+        return IF_OPEN;
+    }
+
     
+
+    fclose(fp);
 
     return 0;
 }

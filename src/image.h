@@ -48,16 +48,29 @@ struct image {
     pixel_t *data;
 };
 
+#define IMAGE_ERROR_X(x, l) \
+    x(IE_SUCCESS) \
+    x(IE_OPEN) \
+    x(IE_READ) \
+    x(IE_WRITE) \
+    x(IE_SIG) \
+    x(IE_MEM) \
+    x(IE_UNSUPPORTED) \
+    l(IE_UNKNOWN)
+
+#define IMAGE_X_LIST(e) e,
+#define IMAGE_X_LIST_END(e) e
+
 enum {
-    IE_SUCCESS,
-    IE_OPEN,
-    IE_READ,
-    IE_WRITE,
-    IE_SIG,
-    IE_MEM,
-    IE_UNSUPPORTED,
-    IE_UNKNOWN
+    IMAGE_ERROR_X(IMAGE_X_LIST, IMAGE_X_LIST_END)
 };
+
+#ifndef IMAGE_IMPL
+#undef IMAGE_ERROR_X
+#undef IMAGE_X_LIST
+#undef IMAGE_X_LIST_END
+#endif
+
 
 enum {
     IT_BMP

@@ -112,4 +112,28 @@ struct font {
     unsigned char flags;
 };
 
+#define FONT_ERROR_X(x, l) \
+    x(IF_SUCCESS) \
+    x(IF_OPEN) \
+    x(IF_READ) \
+    x(IF_SIG) \
+    x(IF_MEM) \
+    x(IF_UNSUPPORTED) \
+    l(IF_UNKNOWN)
+
+#define FONT_X_LIST(e) e,
+#define FONT_X_LIST_END(e) e
+
+enum {
+    FONT_ERROR_X(FONT_X_LIST, FONT_X_LIST_END)
+};
+
+#ifndef FONT_IMPL
+#undef FONT_ERROR_X
+#undef FONT_X_LIST
+#undef FONT_X_LIST_END
+#endif
+
+char *font_get_error_str(int error);
+
 #endif

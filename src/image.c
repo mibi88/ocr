@@ -30,24 +30,20 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include "image.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define STR(s) #s
+#define IMAGE_IMPL
+
+#include "image.h"
+
+#define STR(s) #s,
+#define STR_LAST(s) #s
 
 char *image_get_error_str(int error) {
     char *errors[] = {
-        STR(IE_SUCCESS),
-        STR(IE_OPEN),
-        STR(IE_READ),
-        STR(IE_WRITE),
-        STR(IE_SIG),
-        STR(IE_MEM),
-        STR(IE_UNSUPPORTED),
-        STR(IE_UNKNOWN)
+        IMAGE_ERROR_X(STR, STR_LAST)
     };
 
     return errors[error];
