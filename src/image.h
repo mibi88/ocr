@@ -49,7 +49,7 @@ struct image {
 };
 
 #define IMAGE_ERROR_X(x, l) \
-    x(IE_SUCCESS) \
+    x(IE_NONE) \
     x(IE_OPEN) \
     x(IE_READ) \
     x(IE_WRITE) \

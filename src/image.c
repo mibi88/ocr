@@ -242,6 +242,12 @@ int image_load(struct image *img, char *file) {
                        width, height, color_planes, bpp, compression,
                        raw_size, hpxpm, vpxpm, ppi, colors, important);
 #endif
+                (void)color_planes;
+                (void)compression;
+                (void)raw_size;
+                (void)colors;
+                (void)important;
+
                 img->data = malloc(width*height*sizeof(pixel_t));
 
                 if(img->data == NULL){
@@ -277,6 +283,7 @@ int image_load(struct image *img, char *file) {
                     pal = ftell(fp);
 
                     /* TODO */
+                    (void)pal;
 
                     fclose(fp);
                     free(img->data);
@@ -303,13 +310,17 @@ int image_load(struct image *img, char *file) {
             return IE_UNSUPPORTED;
     }
 
+    (void)size;
+
     fclose(fp);
 
-    return IE_SUCCESS;
+    return IE_NONE;
 }
 
 int image_write(struct image *img, char *file, int type, int flags) {
     FILE *fp;
+
+    (void)flags;
 
     fp = fopen(file, "wb");
 
@@ -426,7 +437,7 @@ int image_write(struct image *img, char *file, int type, int flags) {
 
     fclose(fp);
 
-    return IE_SUCCESS;
+    return IE_NONE;
 }
 
 int image_create(struct image *img, size_t width, size_t height, size_t ppi) {
@@ -442,7 +453,7 @@ int image_create(struct image *img, size_t width, size_t height, size_t ppi) {
 
     img->ppi = ppi;
 
-    return IE_SUCCESS;
+    return IE_NONE;
 }
 
 void image_free(struct image *img) {

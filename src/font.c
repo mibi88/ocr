@@ -50,19 +50,37 @@ char *font_get_error_str(int error) {
 int font_load(struct font *font, char *file) {
     FILE *fp;
 
-    unsigned char b[4+2+3*2];
-
     fp = fopen(file, "rb");
     if(fp == NULL){
 
-        return IF_OPEN;
+        return FE_OPEN;
     }
 
-    
+    {
+        /* Load the directory */
+        static const unsigned char required_tables[][4] = {
+            {0x63, 0x6d, 0x61, 0x70}, /* cmap */
+            {0x67, 0x6c, 0x79, 0x66}, /* glyf */
+            {0x68, 0x65, 0x61, 0x64}, /* head */
+            {0x68, 0x68, 0x65, 0x61}, /* hhea */
+            {0x68, 0x6d, 0x74, 0x78}, /* hmtx */
+            {0x6c, 0x6f, 0x63, 0x61}, /* loca */
+            {0x6d, 0x61, 0x78, 0x70}, /* maxp */
+            {0x6e, 0x61, 0x6d, 0x65}, /* name */
+            {0x70, 0x6f, 0x73, 0x74}, /* post */
+        };
+
+        unsigned char b[4+2+3*2];
+
+        if(fread(b, 1, 4+2+3*2, fp) != 4+2+3*2){
+
+            return FE_READ;
+        }
+    }
 
     fclose(fp);
 
-    return 0;
+    return FE_NONE;
 }
 
 void font_free(void) {

@@ -84,6 +84,8 @@ struct cmap {
     unsigned int platform_id : 16;
 };
 
+#define FONT_REQUIRED_TABLES 9
+
 struct font {
     struct cmap cmap;
 
@@ -91,11 +93,7 @@ struct font {
 
     font_u32_t best_map;
 
-    font_u32_t glyf_table_pos;
-    font_u32_t maxp_table_pos;
-    font_u32_t loca_table_pos;
-    font_u32_t cmap_table_pos;
-    font_u32_t htmx_table_pos;
+    font_u32_t table_pos[FONT_REQUIRED_TABLES];
 
     font_s16_t long_offsets;
 
@@ -113,13 +111,13 @@ struct font {
 };
 
 #define FONT_ERROR_X(x, l) \
-    x(IF_SUCCESS) \
-    x(IF_OPEN) \
-    x(IF_READ) \
-    x(IF_SIG) \
-    x(IF_MEM) \
-    x(IF_UNSUPPORTED) \
-    l(IF_UNKNOWN)
+    x(FE_NONE) \
+    x(FE_OPEN) \
+    x(FE_READ) \
+    x(FE_CORRUPTED) \
+    x(FE_MEM) \
+    x(FE_UNSUPPORTED) \
+    l(FE_UNKNOWN)
 
 #define FONT_X_LIST(e) e,
 #define FONT_X_LIST_END(e) e

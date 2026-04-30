@@ -40,16 +40,20 @@ void e(void) {
 }
 
 int main(int argc, char **argv) {
+#if DEBUG_IMAGE
     struct image img;
     int rc;
 
     size_t x, y;
+#endif
 
 #if (defined(_WIN32) || defined(_WIN64)) && DEBUG
     atexit(e);
 #endif
 
-#if 0
+#if DEBUG_IMAGE
+    (void)argc;
+    (void)argv;
 
     if((rc = image_create(&img, 32, 32, 72))){
         puts(image_get_error_str(rc));
@@ -80,10 +84,10 @@ int main(int argc, char **argv) {
     }
 
     image_free(&img);
-
 #endif
 
-
+    (void)argc;
+    (void)argv;
 
     return 0;
 }
