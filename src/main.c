@@ -40,7 +40,7 @@ void e(void) {
 }
 
 int main(int argc, char **argv) {
-#if DEBUG_IMAGE
+#if MAIN_DEBUG_IMAGE
     struct image img;
     int rc;
 
@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
     atexit(e);
 #endif
 
-#if DEBUG_IMAGE
+#if MAIN_DEBUG_IMAGE
     (void)argc;
     (void)argv;
 

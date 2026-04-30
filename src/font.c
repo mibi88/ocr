@@ -72,9 +72,21 @@ int font_load(struct font *font, char *file) {
 
         unsigned char b[4+2+3*2];
 
+        font_u32_t table_count;
+        unsigned short int found_tables;
+
+        font_u32_t i;
+
         if(fread(b, 1, 4+2+3*2, fp) != 4+2+3*2){
+            fclose(fp);
 
             return FE_READ;
+        }
+
+        table_count = (b[4]<<24)|(b[5]<<16)|(b[6]<<8)|b[7];
+
+        for(i=0;i<FONT_REQUIRED_TABLES;i++){
+            /* TODO */
         }
     }
 
