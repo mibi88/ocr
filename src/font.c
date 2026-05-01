@@ -115,8 +115,6 @@ int font_load(struct font *font, char *file) {
 
         table_count = (b[4]<<8)|b[5];
 
-        printf("%u\n", table_count);
-
         for(i=0;i<table_count;i++){
             size_t n;
 
@@ -143,8 +141,6 @@ int font_load(struct font *font, char *file) {
             return FE_MISSING_TABLES;
         }
     }
-
-    puts("table dir loaded");
 
     {
         /* Read the maxp table */
@@ -194,8 +190,6 @@ int font_load(struct font *font, char *file) {
         return FE_MEM;
     }
 
-    puts("maxp loaded");
-
     {
         /* Read the head table */
 
@@ -218,7 +212,7 @@ int font_load(struct font *font, char *file) {
             return FE_CORRUPTED_HEAD;
         }
 
-        if(fseek(fp, 2+4, SEEK_SET)){
+        if(fseek(fp, 2*4, SEEK_CUR)){
             fclose(fp);
 
             return FE_SEEK;
@@ -229,6 +223,7 @@ int font_load(struct font *font, char *file) {
 
             return FE_READ;
         }
+        printf("0x%02x%02x%02x%02x\n", b[0], b[1], b[2], b[3]);
         if(b[0] != 0x5F || b[1] != 0x0F || b[2] != 0x3C || b[3] != 0xF5){
             fclose(fp);
 
