@@ -357,9 +357,11 @@ int font_load(struct font *font, char *file) {
             if(contour_count >= 0){
                 /* It is a simple glyph */
 
-                /**/
+                /* TODO */
             }else{
                 /* It is a compound glyph */
+
+                /* TODO */
 
                 glyphs[i].waits_loading = 0;
             }
