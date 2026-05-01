@@ -33,6 +33,8 @@
 #ifndef FONT_H
 #define FONT_H
 
+#include <limits.h>
+
 #if UINT_MAX >= 4294967295
 typedef unsigned int font_u32_t;
 typedef int font_s32_t;
@@ -41,8 +43,10 @@ typedef unsigned long font_u32_t;
 typedef long font_s32_t;
 #endif
 
-#if TWOS_COMPLEMENT
+#if SHRT_MAX >= 32767 && SHRT_MIN <= -32768
 typedef short font_s16_t;
+#elif INT_MAX >= 32767 && INT_MIN <= -32768
+typedef int font_s16_t;
 #else
 typedef long font_s16_t;
 #endif
@@ -56,6 +60,8 @@ struct glyph {
     struct point *points;
     font_u32_t *contour_ends;
 
+    font_u32_t offset;
+
     font_u32_t point_count;
     font_u32_t contour_count;
 
@@ -67,6 +73,9 @@ struct glyph {
 
     font_s32_t xmin, ymin;
     font_s32_t xmax, ymax;
+
+    unsigned int loaded : 1;
+    unsigned int waits_loading : 1;
 };
 
 struct dir {
@@ -82,6 +91,18 @@ struct cmap {
 
     unsigned int format : 16;
     unsigned int platform_id : 16;
+};
+
+enum {
+    FONT_CMAP,
+    FONT_GLYF,
+    FONT_HEAD,
+    FONT_HHEA,
+    FONT_HMTX,
+    FONT_LOCA,
+    FONT_MAXP,
+    FONT_NAME,
+    FONT_POST
 };
 
 #define FONT_REQUIRED_TABLES 9
@@ -107,14 +128,21 @@ struct font {
     unsigned int added_contours : 16;
     unsigned int advance_width_count : 16;
 
-    unsigned char flags;
+    unsigned int style : 16;
+
+    unsigned int flags : 8;
+
+    unsigned int vertical : 1;
 };
 
 #define FONT_ERROR_X(x, l) \
     x(FE_NONE) \
     x(FE_OPEN) \
     x(FE_READ) \
-    x(FE_CORRUPTED) \
+    x(FE_SEEK) \
+    x(FE_MISSING_TABLES) \
+    x(FE_CORRUPTED_MAXP) \
+    x(FE_CORRUPTED_HEAD) \
     x(FE_MEM) \
     x(FE_UNSUPPORTED) \
     l(FE_UNKNOWN)
@@ -133,5 +161,7 @@ enum {
 #endif
 
 char *font_get_error_str(int error);
+int font_load(struct font *font, char *file);
+void font_free(struct font *font);
 
 #endif

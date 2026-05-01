@@ -87,7 +87,7 @@ int image_load(struct image *img, char *file) {
     if(fseek(fp, 4, SEEK_CUR)){
         fclose(fp);
 
-        return IE_READ;
+        return IE_SEEK;
     }
 
     if(fread(b, 1, 4, fp) != 4){
@@ -259,7 +259,11 @@ int image_load(struct image *img, char *file) {
                 padding = width%4;
 
                 if(bpp >= 24){
-                    fseek(fp, data_offset, SEEK_SET);
+                    if(fseek(fp, data_offset, SEEK_SET)){
+                        fclose(fp);
+
+                        return IE_SEEK;
+                    }
 
                     b[0] = 0;
                     b[1] = 0;
@@ -275,7 +279,11 @@ int image_load(struct image *img, char *file) {
                             img->data[y*width+x] = b[0]|(b[1]<<8)|(b[2]<<16)|
                                                    (b[3]<<24);
                         }
-                        fseek(fp, padding, SEEK_CUR);
+                        if(fseek(fp, padding, SEEK_CUR)){
+                            fclose(fp);
+
+                            return IE_SEEK;
+                        }
                     }
                 }else{
                     size_t pal;

@@ -52,6 +52,7 @@ struct image {
     x(IE_NONE) \
     x(IE_OPEN) \
     x(IE_READ) \
+    x(IE_SEEK) \
     x(IE_WRITE) \
     x(IE_SIG) \
     x(IE_MEM) \

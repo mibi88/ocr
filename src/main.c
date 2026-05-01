@@ -34,6 +34,10 @@
 #include <stdio.h>
 
 #include "image.h"
+#include "font.h"
+
+#define MAIN_DEBUG_IMAGE    0
+#define MAIN_DEBUG_FONT     1
 
 void e(void) {
     getchar();
@@ -45,6 +49,9 @@ int main(int argc, char **argv) {
     int rc;
 
     size_t x, y;
+#elif MAIN_DEBUG_FONT
+    struct font font;
+    int rc;
 #endif
 
 #if (defined(_WIN32) || defined(_WIN64)) && DEBUG
@@ -64,6 +71,7 @@ int main(int argc, char **argv) {
 
     if((rc = image_write(&img, "test.bmp", IT_BMP, 0))){
         puts(image_get_error_str(rc));
+
         return 1;
     }
 
@@ -71,6 +79,7 @@ int main(int argc, char **argv) {
 
     if((rc = image_load(&img, "test.bmp"))){
         puts(image_get_error_str(rc));
+
         return 1;
     }
 
@@ -84,6 +93,14 @@ int main(int argc, char **argv) {
     }
 
     image_free(&img);
+#elif MAIN_DEBUG_FONT
+    if((rc = font_load(&font, "../DroidSans.ttf"))){
+        puts(font_get_error_str(rc));
+
+        return 1;
+    }
+
+    font_free(&font);
 #endif
 
     (void)argc;
