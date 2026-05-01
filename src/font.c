@@ -153,7 +153,7 @@ int font_load(struct font *font, char *file) {
             return FE_SEEK;
         }
 
-        if(fread(b, 1, 2*4, fp) != 2*4){
+        if(fread(b, 1, 4+2, fp) != 4+2){
             fclose(fp);
 
             return FE_READ;
@@ -165,7 +165,7 @@ int font_load(struct font *font, char *file) {
             return FE_CORRUPTED_MAXP;
         }
 
-        glyph_count = (b[4]<<24)|(b[5]<<16)|(b[6]<<8)|b[7];
+        glyph_count = (b[4]<<8)|b[5];
 
         if(fseek(fp, 12*2, SEEK_CUR)){
             fclose(fp);
@@ -223,7 +223,6 @@ int font_load(struct font *font, char *file) {
 
             return FE_READ;
         }
-        printf("0x%02x%02x%02x%02x\n", b[0], b[1], b[2], b[3]);
         if(b[0] != 0x5F || b[1] != 0x0F || b[2] != 0x3C || b[3] != 0xF5){
             fclose(fp);
 
@@ -270,8 +269,6 @@ int font_load(struct font *font, char *file) {
         }
     }
 
-    puts("head loaded");
-
     {
         /* Read the loca table */
 
@@ -313,8 +310,6 @@ int font_load(struct font *font, char *file) {
             }
         }
     }
-
-    puts("loca loaded");
 
     {
         /* Load all the glyphs from the glyf table */
