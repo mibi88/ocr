@@ -333,7 +333,10 @@ int font_load(struct font *font, char *file) {
     {
         /* Load all the glyphs from the glyf table */
 
-        font_u32_t *glyph_stack = NULL;
+        struct {
+            font_u32_t idx;
+            font_u32_t offset;
+        } *glyph_stack = NULL;
         unsigned char *contour_end_buffer;
         unsigned char *flags;
 
@@ -360,7 +363,7 @@ int font_load(struct font *font, char *file) {
         }
 
         if(glyph_recursion){
-            glyph_stack = malloc(glyph_recursion*sizeof(font_u32_t));
+            glyph_stack = malloc(glyph_recursion*sizeof(*glyph_stack));
             if(glyph_stack == NULL){
                 ON_ERROR();
 
@@ -380,7 +383,6 @@ int font_load(struct font *font, char *file) {
 
         for(i=0;i<glyph_count;i++){
             glyphs[i].loaded = 0;
-            glyphs[i].waits_loading = 0;
             glyphs[i].contour_ends = NULL;
             glyphs[i].points = NULL;
             glyphs[i].point_count = 0;
@@ -580,14 +582,119 @@ int font_load(struct font *font, char *file) {
                 glyphs[i].contour_count = contour_count;
             }else{
                 /* It is a compound glyph */
+                unsigned char comp_flags[2];
+                unsigned char has_instr = 0;
 
-                
+                do{
+                    long offset;
+                    unsigned short int idx;
 
-                glyphs[i].waits_loading = 0;
+                    font_s16_t dx, dy;
+
+                    if((offset = ftell(fp)) < 0){
+                        ON_ERROR();
+
+                        return FE_TELL;
+                    }
+
+                    if(fread(comp_flags, 1, 2, fp) != 2){
+                        ON_ERROR();
+
+                        return FE_READ;
+                    }
+
+                    if(fread(b, 1, 2, fp) != 2){
+                        ON_ERROR();
+
+                        return FE_READ;
+                    }
+                    idx = (b[0]<<8)|b[1];
+
+                    if(idx >= glyph_count){
+                        ON_ERROR();
+
+                        return FE_INVALID_COMPONENT_IDX;
+                    }
+
+                    if(!glyphs[idx].loaded){
+                        if(cur >= glyph_recursion){
+                            ON_ERROR();
+
+                            return FE_STACK_OVERFLOW;
+                        }
+
+                        glyph_stack[cur].idx = i;
+                        glyph_stack[cur].offset = offset;
+                        cur++;
+
+                        i = idx;
+                        if(fseek(fp, table_pos[FONT_GLYF]+glyphs[i].offset,
+                                 SEEK_SET)){
+                            ON_ERROR();
+
+                            return FE_SEEK;
+                        }
+
+                        continue;
+                    }
+
+                    if(comp_flags[1]&(1<<1)){
+                        /* args are coordinates */
+                        font_s16_t x, y;
+
+                        if(comp_flags[1]&1){
+                            /* 2 bytes */
+
+                            /**/
+                        }else{
+                            /* 1 byte */
+
+                            /**/
+                        }
+                    }else{
+                        /* args are point indices */
+                        unsigned short int compound_idx;
+                        unsigned short int component_idx;
+
+                        if(comp_flags[1]&1){
+                            /* 2 bytes */
+
+                            /**/
+                        }else{
+                            /* 1 byte */
+
+                            /**/
+                        }
+                    }
+
+                    has_instr |= *comp_flags&1;
+                }while(comp_flags[1]&(1<<5));
+                if(has_instr){
+                    unsigned short int instruction_len;
+
+                    if(fread(b, 1, 2, fp) != 2){
+                        ON_ERROR();
+
+                        return FE_READ;
+                    }
+
+                    instruction_len = (b[0]<<8)|b[1];
+
+                    if(fseek(fp, instruction_len, SEEK_CUR)){
+                        ON_ERROR();
+
+                        return FE_SEEK;
+                    }
+                }
             }
 
             if(cur){
-                i = glyph_stack[--cur];
+                i = glyph_stack[--cur].idx;
+                if(fseek(fp, glyph_stack[cur].offset, SEEK_SET)){
+                    ON_ERROR();
+
+                    return FE_SEEK;
+                }
             }else{
                 i++;
             }
