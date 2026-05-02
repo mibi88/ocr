@@ -234,7 +234,7 @@ int font_load(struct font *font, char *file) {
             return FE_SEEK;
         }
 
-        if(fread(b, 1, 10, fp) != 10){
+        if(fread(b, 1, 8, fp) != 8){
             ON_ERROR();
 
             return FE_READ;
@@ -251,7 +251,7 @@ int font_load(struct font *font, char *file) {
             font->vertical = 1;
         }
 
-        units_per_em = (b[8]<<8)|b[9];
+        units_per_em = (b[6]<<8)|b[7];
 
         if(fseek(fp, 2*8, SEEK_CUR)){
             ON_ERROR();
@@ -307,6 +307,11 @@ int font_load(struct font *font, char *file) {
                     return FE_READ;
                 }
 
+#if DEBUG_FONT
+                printf("Glyph at offset %02x%02x%02x%02x\n",
+                       *b, b[1], b[2], b[3]);
+#endif
+
                 glyphs[i].offset = (b[0]<<24)|(b[1]<<16)|(b[2]<<8)|b[3];
             }
         }else{
@@ -321,6 +326,10 @@ int font_load(struct font *font, char *file) {
 
                     return FE_READ;
                 }
+
+#if DEBUG_FONT
+                printf("Glyph at offset %02x%02x\n", *b, b[1]);
+#endif
 
                 glyphs[i].offset = (b[0]<<8)|b[1];
             }
@@ -424,17 +433,23 @@ int font_load(struct font *font, char *file) {
 
             if(glyphs[i].loaded) continue;
 
-            if(fread(b, 1, 2+4*2, fp) != 2+4*2){
-                ON_ERROR();
-
-                return FE_READ;
-            }
+#if DEBUG_FONT
+            printf("Loading glyph %u at 0x%08lx\n", i, ftell(fp));
+#endif
 
             if(fseek(fp, table_pos[FONT_GLYF]+glyphs[i].offset, SEEK_SET)){
                 ON_ERROR();
 
                 return FE_SEEK;
             }
+
+            if(fread(b, 1, 2+4*2, fp) != 2+4*2){
+                ON_ERROR();
+
+                return FE_READ;
+            }
+
+            printf("%02x%02x\n", b[0], b[1]);
 
             contour_count = SIGNED((b[0]<<8)|b[1], 16);
 

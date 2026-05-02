@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
 
     image_free(&img);
 #elif MAIN_DEBUG_FONT
-    if((rc = font_load(&font, "../DroidSans.ttf"))){
+    if((rc = font_load(&font, argv[1]))){
         puts(font_get_error_str(rc));
 
         return 1;
