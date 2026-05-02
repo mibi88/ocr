@@ -383,6 +383,8 @@ int font_load(struct font *font, char *file) {
             glyphs[i].waits_loading = 0;
             glyphs[i].contour_ends = NULL;
             glyphs[i].points = NULL;
+            glyphs[i].point_count = 0;
+            glyphs[i].contour_count = 0;
         }
 
 #undef ON_ERROR
@@ -408,7 +410,7 @@ int font_load(struct font *font, char *file) {
 
             font_s16_t contour_count;
 
-            if(i < glyph_count){
+            if(i >= glyph_count){
                 ON_ERROR();
 
                 return FE_GLYPH_INDEX;
@@ -434,6 +436,11 @@ int font_load(struct font *font, char *file) {
 
                 unsigned short int n;
                 unsigned short int point_count;
+
+                unsigned short int instruction_len;
+
+                font_s16_t x = 0;
+                font_s16_t y = 0;
 
                 if(contour_count > contour_max){
                     ON_ERROR();
@@ -461,10 +468,112 @@ int font_load(struct font *font, char *file) {
 
                     point_count = glyphs[i].contour_ends[contour_count-1];
 
+                    if(fread(b, 1, 2, fp) != 2){
+                        ON_ERROR();
+
+                        return FE_READ;
+                    }
+
+                    instruction_len = (b[0]<<8)|b[1];
+
+                    if(fseek(fp, instruction_len, SEEK_CUR)){
+                        ON_ERROR();
+
+                        return FE_SEEK;
+                    }
+
                     /* Load the flags */
                     for(n=0;n<point_count;n++){
                         unsigned char flag;
 
+                        if(fread(&flag, 1, 1, fp) != 1){
+                            ON_ERROR();
+
+                            return FE_READ;
+                        }
+
+                        flags[n] = flag;
+
+                        if(flag&(1<<3)){
+                            unsigned char count;
+                            unsigned char m;
+
+                            if(fread(&count, 1, 1, fp) != 1){
+                                ON_ERROR();
+
+                                return FE_READ;
+                            }
+
+                            for(m=0;m<count;m++){
+                                if(n >= point_count-1){
+                                    ON_ERROR();
+
+                                    return FE_TOO_MANY_FLAGS;
+                                }
+                                flags[++n] = flag;
+                            }
+                        }
+                    }
+
+                    glyphs[i].points = malloc(point_count*
+                                              sizeof(struct point));
+                    if(glyphs[i].points == NULL){
+                        ON_ERROR();
+
+                        return FE_MEM;
+                    }
+
+                    glyphs[i].point_count = point_count;
+
+                    /* Load the X coordinates */
+                    for(n=0;n<point_count;n++){
+                        if(flags[n]&(1<<1)){
+                            /* 1 byte */
+                            if(fread(b, 1, 1, fp) != 1){
+                                ON_ERROR();
+
+                                return FE_READ;
+                            }
+
+                            x += flags[n]&(1<<4) ? *b : -(font_s16_t)*b;
+                        }else if(!(flags[n]&(1<<4))){
+                            /* 2 bytes */
+                            if(fread(b, 1, 2, fp) != 1){
+                                ON_ERROR();
+
+                                return FE_READ;
+                            }
+
+                            x += SIGNED((b[0]<<8)|b[1], 16);
+                        }
+
+                        glyphs[i].points[n].x = x;
+                        glyphs[i].points[n].on_curve = flags[n]&1;
+                    }
+
+                    /* Load the Y coordinates */
+                    for(n=0;n<point_count;n++){
+                        if(flags[n]&(1<<2)){
+                            /* 1 byte */
+                            if(fread(b, 1, 1, fp) != 1){
+                                ON_ERROR();
+
+                                return FE_READ;
+                            }
+
+                            y += flags[n]&(1<<5) ? *b : -(font_s16_t)*b;
+                        }else if(!(flags[n]&(1<<5))){
+                            /* 2 bytes */
+                            if(fread(b, 1, 2, fp) != 1){
+                                ON_ERROR();
+
+                                return FE_READ;
+                            }
+
+                            y += SIGNED((b[0]<<8)|b[1], 16);
+                        }
+
+                        glyphs[i].points[n].y = y;
                     }
                 }
 
@@ -472,7 +581,7 @@ int font_load(struct font *font, char *file) {
             }else{
                 /* It is a compound glyph */
 
-                /* TODO */
+                
 
                 glyphs[i].waits_loading = 0;
             }

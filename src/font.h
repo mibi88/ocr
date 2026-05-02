@@ -145,6 +145,7 @@ struct font {
     x(FE_CORRUPTED_HEAD) \
     x(FE_GLYPH_INDEX) \
     x(FE_CONTOUR_COUNT) \
+    x(FE_TOO_MANY_FLAGS) \
     x(FE_MEM) \
     x(FE_UNSUPPORTED) \
     l(FE_UNKNOWN)
