@@ -58,7 +58,7 @@ struct point {
 
 struct glyph {
     struct point *points;
-    font_u32_t *contour_ends;
+    unsigned short int *contour_ends;
 
     font_u32_t offset;
 
@@ -146,6 +146,7 @@ struct font {
     x(FE_CORRUPTED_HEAD) \
     x(FE_GLYPH_INDEX) \
     x(FE_CONTOUR_COUNT) \
+    x(FE_TOO_MANY_POINTS) \
     x(FE_TOO_MANY_FLAGS) \
     x(FE_INVALID_COMPONENT_IDX) \
     x(FE_STACK_OVERFLOW) \

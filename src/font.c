@@ -390,7 +390,7 @@ int font_load(struct font *font, char *file) {
 #undef ON_ERROR
 #define ON_ERROR() \
     { \
-        size_t i; \
+        font_u32_t i; \
  \
         fclose(fp); \
         free(contour_end_buffer); \
@@ -403,6 +403,12 @@ int font_load(struct font *font, char *file) {
         free(glyphs); \
         free(glyph_stack); \
     }
+
+        if(fseek(fp, table_pos[FONT_GLYF], SEEK_SET)){
+            ON_ERROR();
+
+            return FE_SEEK;
+        }
 
         i = 0;
         while(i < glyph_count || cur){
@@ -424,6 +430,12 @@ int font_load(struct font *font, char *file) {
                 return FE_READ;
             }
 
+            if(fseek(fp, table_pos[FONT_GLYF]+glyphs[i].offset, SEEK_SET)){
+                ON_ERROR();
+
+                return FE_SEEK;
+            }
+
             contour_count = SIGNED((b[0]<<8)|b[1], 16);
 
             glyphs[i].xmin = SIGNED((b[2]<<8)|b[3], 16);
@@ -442,6 +454,8 @@ int font_load(struct font *font, char *file) {
                 font_s16_t x = 0;
                 font_s16_t y = 0;
 
+                printf("load simple glyph from %lx\n", ftell(fp));
+
                 if(contour_count > contour_max){
                     ON_ERROR();
 
@@ -453,7 +467,13 @@ int font_load(struct font *font, char *file) {
                         .contour_ends = malloc(contour_count*
                                                sizeof(unsigned short int));
 
-                    if(fread(contour_end_buffer, contour_count*2, 1,
+                    if(glyphs[i].contour_ends == NULL){
+                        ON_ERROR();
+
+                        return FE_MEM;
+                    }
+
+                    if(fread(contour_end_buffer, 1, contour_count*2,
                              fp) != (unsigned short int)contour_count*2){
                         ON_ERROR();
 
@@ -467,6 +487,11 @@ int font_load(struct font *font, char *file) {
                     }
 
                     point_count = glyphs[i].contour_ends[contour_count-1];
+                    if(point_count > points_max){
+                        ON_ERROR();
+
+                        return FE_TOO_MANY_POINTS;
+                    }
 
                     if(fread(b, 1, 2, fp) != 2){
                         ON_ERROR();
@@ -538,7 +563,7 @@ int font_load(struct font *font, char *file) {
                             x += flags[n]&(1<<4) ? *b : -(font_s16_t)*b;
                         }else if(!(flags[n]&(1<<4))){
                             /* 2 bytes */
-                            if(fread(b, 1, 2, fp) != 1){
+                            if(fread(b, 1, 2, fp) != 2){
                                 ON_ERROR();
 
                                 return FE_READ;
@@ -564,7 +589,7 @@ int font_load(struct font *font, char *file) {
                             y += flags[n]&(1<<5) ? *b : -(font_s16_t)*b;
                         }else if(!(flags[n]&(1<<5))){
                             /* 2 bytes */
-                            if(fread(b, 1, 2, fp) != 1){
+                            if(fread(b, 1, 2, fp) != 2){
                                 ON_ERROR();
 
                                 return FE_READ;
@@ -582,6 +607,8 @@ int font_load(struct font *font, char *file) {
                 /* It is a compound glyph */
                 unsigned char comp_flags[2];
                 unsigned char has_instr = 0;
+
+                printf("load compound glyph from %lx\n", ftell(fp));
 
                 if(glyphs[i].waits_loading){
                     if(fseek(fp, glyph_stack[cur].offset, SEEK_SET)){
