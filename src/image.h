@@ -39,12 +39,12 @@
 #if UINT_MAX >= 4294967295
 typedef unsigned int pixel_t;
 #else
-typedef unsigned long pixel_t;
+typedef unsigned long int pixel_t;
 #endif
 
 struct image {
     size_t w, h;
-    unsigned long ppi;
+    unsigned long int ppi;
     pixel_t *data;
 };
 

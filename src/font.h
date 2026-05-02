@@ -39,8 +39,8 @@
 typedef unsigned int font_u32_t;
 typedef int font_s32_t;
 #else
-typedef unsigned long font_u32_t;
-typedef long font_s32_t;
+typedef unsigned long int font_u32_t;
+typedef long int font_s32_t;
 #endif
 
 #if SHRT_MAX >= 32767 && SHRT_MIN <= -32768
@@ -48,7 +48,7 @@ typedef short font_s16_t;
 #elif INT_MAX >= 32767 && INT_MIN <= -32768
 typedef int font_s16_t;
 #else
-typedef long font_s16_t;
+typedef long int font_s16_t;
 #endif
 
 struct point {
@@ -143,6 +143,8 @@ struct font {
     x(FE_MISSING_TABLES) \
     x(FE_CORRUPTED_MAXP) \
     x(FE_CORRUPTED_HEAD) \
+    x(FE_GLYPH_INDEX) \
+    x(FE_CONTOUR_COUNT) \
     x(FE_MEM) \
     x(FE_UNSUPPORTED) \
     l(FE_UNKNOWN)
