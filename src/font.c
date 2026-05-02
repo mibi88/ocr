@@ -51,11 +51,8 @@ char *font_get_error_str(int error) {
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-#if TWOS_COMPLEMENT
-#define SIGNED(a, b) (a)
-#else
-#define SIGNED(a, b) ((a)&(1<<(b-1)) ? ~(a)+1 : (a))
-#endif
+#define SIGNED(a, b) ((a)&(1<<(b-1)) ? \
+                      -(long int)(((a)^(((font_u32_t)1<<b)-1))+1) : (a))
 
 int font_load(struct font *font, char *file) {
     FILE *fp;
@@ -383,6 +380,7 @@ int font_load(struct font *font, char *file) {
 
         for(i=0;i<glyph_count;i++){
             glyphs[i].loaded = 0;
+            glyphs[i].waits_loading = 0;
             glyphs[i].contour_ends = NULL;
             glyphs[i].points = NULL;
             glyphs[i].point_count = 0;
@@ -585,6 +583,14 @@ int font_load(struct font *font, char *file) {
                 unsigned char comp_flags[2];
                 unsigned char has_instr = 0;
 
+                if(glyphs[i].waits_loading){
+                    if(fseek(fp, glyph_stack[cur].offset, SEEK_SET)){
+                        ON_ERROR();
+
+                        return FE_SEEK;
+                    }
+                }
+
                 do{
                     long offset;
                     unsigned short int idx;
@@ -623,6 +629,8 @@ int font_load(struct font *font, char *file) {
                             return FE_STACK_OVERFLOW;
                         }
 
+                        glyphs[i].waits_loading = 1;
+
                         glyph_stack[cur].idx = i;
                         glyph_stack[cur].offset = offset;
                         cur++;
@@ -645,11 +653,25 @@ int font_load(struct font *font, char *file) {
                         if(comp_flags[1]&1){
                             /* 2 bytes */
 
-                            /**/
+                            if(fread(b, 1, 4, fp) != 4){
+                                ON_ERROR();
+
+                                return FE_READ;
+                            }
+
+                            dx = SIGNED((b[0]<<8)|b[1], 16);
+                            dy = SIGNED((b[2]<<8)|b[3], 16);
                         }else{
                             /* 1 byte */
 
-                            /**/
+                            if(fread(b, 1, 2, fp) != 2){
+                                ON_ERROR();
+
+                                return FE_READ;
+                            }
+
+                            dx = SIGNED(b[0], 8);
+                            dy = SIGNED(b[1], 8);
                         }
                     }else{
                         /* args are point indices */
@@ -659,11 +681,72 @@ int font_load(struct font *font, char *file) {
                         if(comp_flags[1]&1){
                             /* 2 bytes */
 
-                            /**/
+                            if(fread(b, 1, 4, fp) != 4){
+                                ON_ERROR();
+
+                                return FE_READ;
+                            }
+
+                            compound_idx = (b[0]<<8)|b[1];
+                            component_idx = (b[2]<<8)|b[3];
                         }else{
                             /* 1 byte */
 
-                            /**/
+                            if(fread(b, 1, 2, fp) != 2){
+                                ON_ERROR();
+
+                                return FE_READ;
+                            }
+
+                            compound_idx = b[0];
+                            component_idx = b[1];
+                        }
+
+                        if(compound_idx >= glyphs[i].point_count ||
+                           component_idx >= glyphs[idx].point_count){
+                            ON_ERROR();
+
+                            return FE_INVALID_POINT_IDX;
+                        }
+
+                        dx = glyphs[i].points[compound_idx].x-
+                             glyphs[idx].points[compound_idx].x;
+                        dy = glyphs[i].points[compound_idx].y-
+                             glyphs[idx].points[compound_idx].y;
+                    }
+
+                    if(comp_flags[1]&(1<<3)){
+                        /* Simple scale */
+
+                        fputs("FIXME: Scale transformation unsupported!\n",
+                              stderr);
+
+                        if(fseek(fp, 2, SEEK_CUR)){
+                            ON_ERROR();
+
+                            return FE_SEEK;
+                        }
+                    }else if(comp_flags[1]&(1<<6)){
+                        /* X and Y scale */
+
+                        fputs("FIXME: X/Y scale transformation unsupported!\n",
+                              stderr);
+
+                        if(fseek(fp, 2*2, SEEK_CUR)){
+                            ON_ERROR();
+
+                            return FE_SEEK;
+                        }
+                    }else if(comp_flags[1]&(1<<7)){
+                        /* Two by two matrix */
+
+                        fputs("FIXME: Two-by-two matrix transformation "
+                              "unsupported!\n", stderr);
+
+                        if(fseek(fp, 4*2, SEEK_CUR)){
+                            ON_ERROR();
+
+                            return FE_SEEK;
                         }
                     }
 
@@ -686,11 +769,13 @@ int font_load(struct font *font, char *file) {
                         return FE_SEEK;
                     }
                 }
+
+                glyphs[i].waits_loading = 0;
             }
 
             if(cur){
                 i = glyph_stack[--cur].idx;
-                if(fseek(fp, glyph_stack[cur].offset, SEEK_SET)){
+                if(fseek(fp, table_pos[FONT_GLYF]+glyphs[i].offset, SEEK_SET)){
                     ON_ERROR();
 
                     return FE_SEEK;

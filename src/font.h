@@ -75,6 +75,7 @@ struct glyph {
     font_s32_t xmax, ymax;
 
     unsigned int loaded : 1;
+    unsigned int waits_loading : 1;
 };
 
 struct dir {
@@ -148,6 +149,7 @@ struct font {
     x(FE_TOO_MANY_FLAGS) \
     x(FE_INVALID_COMPONENT_IDX) \
     x(FE_STACK_OVERFLOW) \
+    x(FE_INVALID_POINT_IDX) \
     x(FE_MEM) \
     x(FE_UNSUPPORTED) \
     l(FE_UNKNOWN)
