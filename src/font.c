@@ -307,12 +307,11 @@ int font_load(struct font *font, char *file) {
                     return FE_READ;
                 }
 
-#if DEBUG_FONT
-                printf("Glyph at offset %02x%02x%02x%02x\n",
-                       *b, b[1], b[2], b[3]);
-#endif
-
                 glyphs[i].offset = (b[0]<<24)|(b[1]<<16)|(b[2]<<8)|b[3];
+#if DEBUG_FONT
+                printf("Glyph %u at 0x%08x\n", i, glyphs[i].offset+
+                       table_pos[FONT_GLYF]);
+#endif
             }
         }else{
             font_u32_t i;
@@ -327,11 +326,11 @@ int font_load(struct font *font, char *file) {
                     return FE_READ;
                 }
 
-#if DEBUG_FONT
-                printf("Glyph at offset %02x%02x\n", *b, b[1]);
-#endif
-
                 glyphs[i].offset = (b[0]<<8)|b[1];
+#if DEBUG_FONT
+                printf("Glyph %u at 0x%04x\n", i, glyphs[i].offset+
+                       table_pos[FONT_GLYF]);
+#endif
             }
         }
     }
@@ -433,15 +432,17 @@ int font_load(struct font *font, char *file) {
 
             if(glyphs[i].loaded) continue;
 
-#if DEBUG_FONT
-            printf("Loading glyph %u at 0x%08lx\n", i, ftell(fp));
-#endif
-
+#if 1
             if(fseek(fp, table_pos[FONT_GLYF]+glyphs[i].offset, SEEK_SET)){
                 ON_ERROR();
 
                 return FE_SEEK;
             }
+#endif
+
+#if DEBUG_FONT
+            printf("Loading glyph %u at 0x%08lx\n", i, ftell(fp));
+#endif
 
             if(fread(b, 1, 2+4*2, fp) != 2+4*2){
                 ON_ERROR();
@@ -449,9 +450,11 @@ int font_load(struct font *font, char *file) {
                 return FE_READ;
             }
 
-            printf("%02x%02x\n", b[0], b[1]);
-
             contour_count = SIGNED((b[0]<<8)|b[1], 16);
+
+#if DEBUG_FONT
+            printf("Contour count: %u\n", contour_count);
+#endif
 
             glyphs[i].xmin = SIGNED((b[2]<<8)|b[3], 16);
             glyphs[i].ymin = SIGNED((b[4]<<8)|b[5], 16);
@@ -469,7 +472,9 @@ int font_load(struct font *font, char *file) {
                 font_s16_t x = 0;
                 font_s16_t y = 0;
 
-                printf("load simple glyph from %lx\n", ftell(fp));
+#if DEBUG_FONT
+                printf("Load simple glyph from %lx\n", ftell(fp));
+#endif
 
                 if(contour_count > contour_max){
                     ON_ERROR();
@@ -501,7 +506,7 @@ int font_load(struct font *font, char *file) {
                                                contour_end_buffer[n*2+1];
                     }
 
-                    point_count = glyphs[i].contour_ends[contour_count-1];
+                    point_count = glyphs[i].contour_ends[contour_count-1]+1;
                     if(point_count > points_max){
                         ON_ERROR();
 
@@ -565,6 +570,12 @@ int font_load(struct font *font, char *file) {
 
                     glyphs[i].point_count = point_count;
 
+#if DEBUG_FONT
+                    for(n=0;n<point_count;n++){
+                        printf("Flag %u: %02x\n", n, flags[n]);
+                    }
+#endif
+
                     /* Load the X coordinates */
                     for(n=0;n<point_count;n++){
                         if(flags[n]&(1<<1)){
@@ -576,6 +587,10 @@ int font_load(struct font *font, char *file) {
                             }
 
                             x += flags[n]&(1<<4) ? *b : -(font_s16_t)*b;
+#if DEBUG_FONT
+                            printf("One byte X coordinate. Offset: %d\n",
+                                   flags[n]&(1<<4) ? *b : -(font_s16_t)*b);
+#endif
                         }else if(!(flags[n]&(1<<4))){
                             /* 2 bytes */
                             if(fread(b, 1, 2, fp) != 2){
@@ -585,7 +600,17 @@ int font_load(struct font *font, char *file) {
                             }
 
                             x += SIGNED((b[0]<<8)|b[1], 16);
+#if DEBUG_FONT
+                            printf("Two byte X coordinate. Offset: %d\n",
+                                   SIGNED((b[0]<<8)|b[1], 16));
+#endif
                         }
+#if DEBUG_FONT
+                        else{
+                            puts("Repeat X");
+                        }
+                        printf("X: %d\n", x);
+#endif
 
                         glyphs[i].points[n].x = x;
                         glyphs[i].points[n].on_curve = flags[n]&1;
@@ -602,6 +627,10 @@ int font_load(struct font *font, char *file) {
                             }
 
                             y += flags[n]&(1<<5) ? *b : -(font_s16_t)*b;
+#if DEBUG_FONT
+                            printf("One byte Y coordinate. Offset: %d\n",
+                                   flags[n]&(1<<5) ? *b : -(font_s16_t)*b);
+#endif
                         }else if(!(flags[n]&(1<<5))){
                             /* 2 bytes */
                             if(fread(b, 1, 2, fp) != 2){
@@ -611,7 +640,17 @@ int font_load(struct font *font, char *file) {
                             }
 
                             y += SIGNED((b[0]<<8)|b[1], 16);
+#if DEBUG_FONT
+                            printf("Two byte Y coordinate. Offset: %d\n",
+                                   SIGNED((b[0]<<8)|b[1], 16));
+#endif
                         }
+#if DEBUG_FONT
+                        else{
+                            puts("Repeat Y");
+                        }
+                        printf("Y: %d\n", y);
+#endif
 
                         glyphs[i].points[n].y = y;
                     }
@@ -832,9 +871,41 @@ int font_load(struct font *font, char *file) {
         free(glyph_stack);
     }
 
+    font->glyphs = glyphs;
+    font->glyph_count = glyph_count;
+
     fclose(fp);
 
     return FE_NONE;
+}
+
+void font_render_glyph(struct font *font, font_u32_t chr,
+                       struct image *image) {
+    struct glyph *glyph = font->glyphs+chr;
+
+    font_u32_t i;
+
+    for(i=0;i<glyph->point_count;i++){
+        font_s16_t x;
+        font_s16_t y;
+
+#if DEBUG_FONT
+        printf("Point: %d, %d, %d\n", glyph->points[i].x, glyph->points[i].y,
+               glyph->points[i].on_curve);
+#endif
+
+        x = glyph->points[i].x/8;
+        y = image->h-4-glyph->points[i].y/8;
+
+        if(x < 0 || x >= image->w ||
+           y < 0 || y >= image->h) continue;
+
+        if(glyph->points[i].on_curve){
+            image->data[y*image->w+x] = IMAGE_RGBAINT(255, 255, 255, 255);
+        }else{
+            image->data[y*image->w+x] = IMAGE_RGBAINT(0, 255, 0, 255);
+        }
+    }
 }
 
 void font_free(struct font *font) {

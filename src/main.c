@@ -51,6 +51,7 @@ int main(int argc, char **argv) {
     size_t x, y;
 #elif MAIN_DEBUG_FONT
     struct font font;
+    struct image image;
     int rc;
 #endif
 
@@ -100,7 +101,22 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    if((rc = image_create(&image, 200, 200, 72))){
+        puts(image_get_error_str(rc));
+
+        return 1;
+    }
+
+    font_render_glyph(&font, atoi(argv[2]), &image);
+
+    if((rc = image_write(&image, argv[3], IT_BMP, 0))){
+        puts(image_get_error_str(rc));
+
+        return 1;
+    }
+
     font_free(&font);
+    image_free(&image);
 #endif
 
     (void)argc;

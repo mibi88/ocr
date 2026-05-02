@@ -35,6 +35,8 @@
 
 #include <limits.h>
 
+#include "image.h"
+
 #if UINT_MAX >= 4294967295
 typedef unsigned int font_u32_t;
 typedef int font_s32_t;
@@ -78,13 +80,6 @@ struct glyph {
     unsigned int waits_loading : 1;
 };
 
-struct dir {
-    font_u32_t tag;
-    font_u32_t checksum;
-    font_u32_t offset;
-    font_u32_t size;
-};
-
 struct cmap {
     font_u32_t group_num;
     font_u32_t data_cur;
@@ -110,7 +105,7 @@ enum {
 struct font {
     struct cmap cmap;
 
-    struct dir *dirs;
+    struct glyph *glyphs;
 
     font_u32_t best_map;
 
@@ -170,6 +165,8 @@ enum {
 
 char *font_get_error_str(int error);
 int font_load(struct font *font, char *file);
+void font_render_glyph(struct font *font, font_u32_t chr,
+                       struct image *image);
 void font_free(struct font *font);
 
 #endif

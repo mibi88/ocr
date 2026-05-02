@@ -449,7 +449,7 @@ int image_write(struct image *img, char *file, int type, int flags) {
 }
 
 int image_create(struct image *img, size_t width, size_t height, size_t ppi) {
-    img->data = malloc(sizeof(pixel_t)*width*height);
+    img->data = calloc(width*height, sizeof(pixel_t));
 
     if(img->data == NULL){
 
