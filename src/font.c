@@ -694,7 +694,9 @@ int font_load(struct font *font, char *file) {
                 unsigned char comp_flags[2];
                 unsigned char has_instr = 0;
 
+#if DEBUG_FONT
                 printf("Load compound glyph from %lx\n", ftell(fp));
+#endif
 
                 if(glyphs[i].waits_loading){
                     if(fseek(fp, glyph_stack[cur].offset, SEEK_SET)){
