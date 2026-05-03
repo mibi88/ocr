@@ -417,6 +417,7 @@ int font_load(struct font *font, char *file) {
             glyphs[i].points = NULL;
             glyphs[i].point_count = 0;
             glyphs[i].contour_count = 0;
+            glyphs[i].code = 0;
         }
 
 #undef ON_ERROR
@@ -1199,10 +1200,10 @@ LOAD:
                             return FE_TELL;
                         }
 
-                        for(m=start_code;m<end_code;m++){
-                            unsigned short int glyph_idx;
+                        if(offset){
+                            for(m=start_code;m<end_code;m++){
+                                unsigned short int glyph_idx;
 
-                            if(offset){
                                 if(fseek(fp, offset+2*(m-start_code)-2,
                                          SEEK_CUR)){
                                     ON_ERROR();
@@ -1223,17 +1224,29 @@ LOAD:
 
                                     return FE_SEEK;
                                 }
-                            }else{
+
+                                if(glyph_idx >= glyph_count){
+                                    ON_ERROR();
+
+                                    return FE_CMAP_INVALID_GLYPH_INDEX;
+                                }
+
+                                glyphs[glyph_idx].code = m;
+                            }
+                        }else{
+                            for(m=start_code;m<end_code;m++){
+                                unsigned short int glyph_idx;
+
                                 glyph_idx = (delta+m)&0xFFFF;
+
+                                if(glyph_idx >= glyph_count){
+                                    ON_ERROR();
+
+                                    return FE_CMAP_INVALID_GLYPH_INDEX;
+                                }
+
+                                glyphs[glyph_idx].code = m;
                             }
-
-                            if(glyph_idx >= glyph_count){
-                                ON_ERROR();
-
-                                return FE_CMAP_INVALID_GLYPH_INDEX;
-                            }
-
-                            glyphs[glyph_idx].code = m;
                         }
                     }
 
@@ -1316,6 +1329,10 @@ void font_render_glyph(struct font *font, font_u32_t chr,
     struct glyph *glyph = font->glyphs+chr;
 
     font_u32_t i;
+
+#if DEBUG_FONT
+    printf("Glyph UTF-8 code: %08x\n", glyph->code);
+#endif
 
     for(i=0;i<glyph->point_count;i++){
         font_s16_t x;
