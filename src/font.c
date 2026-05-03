@@ -418,6 +418,7 @@ int font_load(struct font *font, char *file) {
             glyphs[i].point_count = 0;
             glyphs[i].contour_count = 0;
             glyphs[i].code = 0;
+            cmap[i] = glyphs+i;
         }
 
 #undef ON_ERROR
@@ -1316,7 +1317,9 @@ LOAD:
                     }
                 }
             }
-       }
+        }
+
+        font->cmap = cmap;
     }
 
     fclose(fp);
@@ -1358,5 +1361,17 @@ void font_render_glyph(struct font *font, font_u32_t chr,
 }
 
 void font_free(struct font *font) {
+    font_u32_t i;
 
+    for(i=0;i<font->glyph_count;i++){
+        free(font->glyphs[i].points);
+        free(font->glyphs[i].contour_ends);
+    }
+
+    free(font->glyphs);
+    font->glyphs = NULL;
+    free(font->cmap);
+    font->cmap = NULL;
+
+    font->glyph_count = 0;
 }
