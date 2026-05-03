@@ -194,6 +194,9 @@ int font_load(struct font *font, char *file) {
         }
 
         glyph_recursion = (b[0]<<8)|b[1];
+#if DEBUG_FONT
+        printf("Glyph recursion: %u\n", glyph_recursion);
+#endif
     }
 
     /* Allocate memory to store the glyph structures */
@@ -437,7 +440,9 @@ int font_load(struct font *font, char *file) {
                 return FE_GLYPH_INDEX;
             }
 
-            if(glyphs[i].loaded) continue;
+            if(glyphs[i].loaded){
+                goto CONTINUE;
+            }
 
             if(glyphs[i].offset == glyphs[i+1].offset){
                 glyphs[i].contour_ends = NULL;
@@ -446,9 +451,7 @@ int font_load(struct font *font, char *file) {
                 glyphs[i].point_count = 0;
                 glyphs[i].loaded = 1;
 
-                i++;
-
-                continue;
+                goto CONTINUE;
             }
 
             if(fseek(fp, table_pos[FONT_GLYF]+glyphs[i].offset, SEEK_SET)){
@@ -674,6 +677,7 @@ int font_load(struct font *font, char *file) {
                 }
 
                 glyphs[i].contour_count = contour_count;
+                glyphs[i].loaded = 1;
             }else{
                 /* It is a compound glyph */
                 unsigned char comp_flags[2];
@@ -721,6 +725,9 @@ int font_load(struct font *font, char *file) {
                     }
 
                     if(!glyphs[idx].loaded){
+#if DEBUG_FONT
+                        printf("Glyph %u needs to be loaded!\n", idx);
+#endif
                         if(cur >= glyph_recursion){
                             ON_ERROR();
 
@@ -729,20 +736,21 @@ int font_load(struct font *font, char *file) {
 
                         glyphs[i].waits_loading = 1;
 
+#if DEBUG_FONT
+                        printf("Pushing at %u!\n", cur);
+#endif
+
                         glyph_stack[cur].idx = i;
                         glyph_stack[cur].offset = offset;
                         cur++;
 
                         i = idx;
-                        if(fseek(fp, table_pos[FONT_GLYF]+glyphs[i].offset,
-                                 SEEK_SET)){
-                            ON_ERROR();
 
-                            return FE_SEEK;
-                        }
-
-                        continue;
+                        goto LOAD;
                     }
+#if DEBUG_FONT
+                    printf("Component glyph %u already loaded!\n", idx);
+#endif
 
                     if(comp_flags[1]&(1<<1)){
                         /* args are coordinates */
@@ -869,18 +877,20 @@ int font_load(struct font *font, char *file) {
                 }
 
                 glyphs[i].waits_loading = 0;
+                glyphs[i].loaded = 1;
             }
 
+CONTINUE:
             if(cur){
                 i = glyph_stack[--cur].idx;
-                if(fseek(fp, table_pos[FONT_GLYF]+glyphs[i].offset, SEEK_SET)){
-                    ON_ERROR();
-
-                    return FE_SEEK;
-                }
+#if DEBUG_FONT
+                printf("Returned to %u\n", cur);
+#endif
             }else{
                 i++;
             }
+LOAD:
+            (void)glyphs; /* Labels need to be followed by a statement */
         }
 
         free(contour_end_buffer);
