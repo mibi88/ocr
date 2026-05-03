@@ -135,6 +135,11 @@ int font_load(struct font *font, char *file) {
 
                     table_pos[n] = (b[8]<<24)|(b[9]<<16)|(b[10]<<8)|b[11];
 
+#if DEBUG_FONT
+                    printf("Table %c%c%c%c has offset 0x%08x\n",
+                           *b, b[1], b[2], b[3], table_pos[n]);
+#endif
+
                     break;
                 }
             }
@@ -192,7 +197,7 @@ int font_load(struct font *font, char *file) {
     }
 
     /* Allocate memory to store the glyph structures */
-    glyphs = malloc(glyph_count*sizeof(struct glyph));
+    glyphs = malloc((glyph_count+1)*sizeof(struct glyph));
     if(glyphs == NULL){
         ON_ERROR();
 
@@ -297,8 +302,12 @@ int font_load(struct font *font, char *file) {
         if(long_offsets){
             font_u32_t i;
 
-            for(i=0;i<glyph_count;i++){
+            for(i=0;i<glyph_count+1;i++){
                 unsigned char b[4];
+
+#if DEBUG_FONT
+                printf("cur: %08lx\n", ftell(fp));
+#endif
 
                 /* TODO: Read multiple offsets at once */
                 if(fread(b, 1, 4, fp) != 4){
@@ -316,8 +325,12 @@ int font_load(struct font *font, char *file) {
         }else{
             font_u32_t i;
 
-            for(i=0;i<glyph_count;i++){
+            for(i=0;i<glyph_count+1;i++){
                 unsigned char b[2];
+
+#if DEBUG_FONT
+                printf("cur: %08lx\n", ftell(fp));
+#endif
 
                 /* TODO: Read multiple offsets at once */
                 if(fread(b, 1, 2, fp) != 2){
@@ -326,7 +339,7 @@ int font_load(struct font *font, char *file) {
                     return FE_READ;
                 }
 
-                glyphs[i].offset = (b[0]<<8)|b[1];
+                glyphs[i].offset = ((b[0]<<8)|b[1])*2;
 #if DEBUG_FONT
                 printf("Glyph %u at 0x%04x\n", i, glyphs[i].offset+
                        table_pos[FONT_GLYF]);
@@ -412,12 +425,6 @@ int font_load(struct font *font, char *file) {
         free(glyph_stack); \
     }
 
-        if(fseek(fp, table_pos[FONT_GLYF], SEEK_SET)){
-            ON_ERROR();
-
-            return FE_SEEK;
-        }
-
         i = 0;
         while(i < glyph_count || cur){
             unsigned char b[2+4*2];
@@ -432,13 +439,23 @@ int font_load(struct font *font, char *file) {
 
             if(glyphs[i].loaded) continue;
 
-#if 1
+            if(glyphs[i].offset == glyphs[i+1].offset){
+                glyphs[i].contour_ends = NULL;
+                glyphs[i].contour_count = 0;
+                glyphs[i].points = NULL;
+                glyphs[i].point_count = 0;
+                glyphs[i].loaded = 1;
+
+                i++;
+
+                continue;
+            }
+
             if(fseek(fp, table_pos[FONT_GLYF]+glyphs[i].offset, SEEK_SET)){
                 ON_ERROR();
 
                 return FE_SEEK;
             }
-#endif
 
 #if DEBUG_FONT
             printf("Loading glyph %u at 0x%08lx\n", i, ftell(fp));
@@ -453,7 +470,7 @@ int font_load(struct font *font, char *file) {
             contour_count = SIGNED((b[0]<<8)|b[1], 16);
 
 #if DEBUG_FONT
-            printf("Contour count: %u\n", contour_count);
+            printf("Contour count: %d\n", contour_count);
 #endif
 
             glyphs[i].xmin = SIGNED((b[2]<<8)|b[3], 16);
@@ -662,7 +679,7 @@ int font_load(struct font *font, char *file) {
                 unsigned char comp_flags[2];
                 unsigned char has_instr = 0;
 
-                printf("load compound glyph from %lx\n", ftell(fp));
+                printf("Load compound glyph from %lx\n", ftell(fp));
 
                 if(glyphs[i].waits_loading){
                     if(fseek(fp, glyph_stack[cur].offset, SEEK_SET)){
