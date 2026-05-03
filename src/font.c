@@ -1083,7 +1083,13 @@ LOAD:
             if(best_platform_specific_id == 3 ||
                best_platform_specific_id == 4){
                 if(best_format == 4){
-                    unsigned short int segment_count;
+                    unsigned short int segment_count_2;
+                    unsigned short int n;
+
+                    unsigned char *end_codes;
+                    unsigned char *start_codes;
+                    unsigned char *deltas;
+                    unsigned char *offsets;
 
                     if(fseek(fp, 2*2, SEEK_CUR)){
                         ON_ERROR();
@@ -1097,12 +1103,159 @@ LOAD:
                         return FE_READ;
                     }
 
-                    segment_count = (b[0]<<8)|b[1];
+                    segment_count_2 = ((b[0]<<8)|b[1]);
 
-                    /* TODO */
-                    ON_ERROR();
+                    end_codes = malloc(segment_count_2);
+                    start_codes = malloc(segment_count_2);
+                    deltas = malloc(segment_count_2);
+                    offsets = malloc(segment_count_2);
+                    if(end_codes == NULL ||
+                       start_codes == NULL ||
+                       deltas == NULL ||
+                       offsets == NULL){
+                        ON_ERROR();
 
-                    return FE_UNSUPPORTED;
+                        free(end_codes);
+                        free(start_codes);
+                        free(deltas);
+                        free(offsets);
+
+                        return FE_MEM;
+                    }
+#undef ON_ERROR
+#define ON_ERROR() \
+    { \
+        font_u32_t i; \
+ \
+        fclose(fp); \
+ \
+        free(end_codes); \
+        free(start_codes); \
+        free(deltas); \
+        free(offsets); \
+ \
+        for(i=0;i<glyph_count;i++){ \
+            free(glyphs[i].contour_ends); \
+        } \
+ \
+        free(glyphs); \
+        free(cmap); \
+    }
+
+                    if(fseek(fp, 3*2, SEEK_CUR)){
+                        ON_ERROR();
+
+                        return FE_SEEK;
+                    }
+
+                    if(fread(end_codes, 1, segment_count_2,
+                             fp) != segment_count_2){
+                        ON_ERROR();
+
+                        return FE_READ;
+                    }
+                    if(fseek(fp, 2, SEEK_CUR)){
+                        ON_ERROR();
+
+                        return FE_SEEK;
+                    }
+                    if(fread(start_codes, 1, segment_count_2,
+                             fp) != segment_count_2){
+                        ON_ERROR();
+
+                        return FE_READ;
+                    }
+                    if(fread(deltas, 1, segment_count_2,
+                             fp) != segment_count_2){
+                        ON_ERROR();
+
+                        return FE_READ;
+                    }
+                    if(fread(offsets, 1, segment_count_2,
+                             fp) != segment_count_2){
+                        ON_ERROR();
+
+                        return FE_READ;
+                    }
+
+                    for(n=0;n<segment_count_2;n+=2){
+                        long r;
+
+                        unsigned short int m;
+
+                        unsigned short int start_code;
+                        unsigned short int end_code;
+                        unsigned short int delta;
+                        unsigned short int offset;
+
+                        start_code = (start_codes[n]<<8)|start_codes[n+1];
+                        end_code = (end_codes[n]<<8)|end_codes[n+1];
+                        delta = (deltas[n]<<8)|deltas[n+1];
+                        offset = (offsets[n]<<8)|offsets[n+1];
+
+                        if((r = ftell(fp)) < 0){
+                            ON_ERROR();
+
+                            return FE_TELL;
+                        }
+
+                        for(m=start_code;m<end_code;m++){
+                            unsigned short int glyph_idx;
+
+                            if(offset){
+                                if(fseek(fp, offset+2*(m-start_code)-2,
+                                         SEEK_CUR)){
+                                    ON_ERROR();
+
+                                    return FE_SEEK;
+                                }
+
+                                if(fread(b, 1, 2, fp) != 2){
+                                    ON_ERROR();
+
+                                    return FE_READ;
+                                }
+
+                                glyph_idx = (b[0]<<8)|b[1];
+
+                                if(fseek(fp, r, SEEK_SET)){
+                                    ON_ERROR();
+
+                                    return FE_SEEK;
+                                }
+                            }else{
+                                glyph_idx = (delta+m)&0xFFFF;
+                            }
+
+                            if(glyph_idx >= glyph_count){
+                                ON_ERROR();
+
+                                return FE_CMAP_INVALID_GLYPH_INDEX;
+                            }
+
+                            glyphs[glyph_idx].code = m;
+                        }
+                    }
+
+                    free(end_codes);
+                    free(start_codes);
+                    free(deltas);
+                    free(offsets);
+
+#undef ON_ERROR
+#define ON_ERROR() \
+    { \
+        font_u32_t i; \
+ \
+        fclose(fp); \
+ \
+        for(i=0;i<glyph_count;i++){ \
+            free(glyphs[i].contour_ends); \
+        } \
+ \
+        free(glyphs); \
+        free(cmap); \
+    }
                 }else if(best_format == 12){
                     font_u32_t group_count;
                     font_u32_t n;
