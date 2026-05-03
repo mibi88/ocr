@@ -58,6 +58,7 @@ int font_load(struct font *font, char *file) {
     FILE *fp;
 
     struct glyph *glyphs;
+    struct glyph **cmap;
 
     font_u32_t table_pos[FONT_REQUIRED_TABLES];
     font_u32_t table_count;
@@ -201,8 +202,12 @@ int font_load(struct font *font, char *file) {
 
     /* Allocate memory to store the glyph structures */
     glyphs = malloc((glyph_count+1)*sizeof(struct glyph));
-    if(glyphs == NULL){
+    cmap = malloc(glyph_count*sizeof(struct glyph*));
+    if(glyphs == NULL || cmap == NULL){
         ON_ERROR();
+
+        free(glyphs);
+        free(cmap);
 
         return FE_MEM;
     }
@@ -212,6 +217,7 @@ int font_load(struct font *font, char *file) {
     { \
         fclose(fp); \
         free(glyphs); \
+        free(cmap); \
     }
 
     {
@@ -373,6 +379,7 @@ int font_load(struct font *font, char *file) {
     { \
         fclose(fp); \
         free(glyphs); \
+        free(cmap); \
         free(contour_end_buffer); \
         free(flags); \
     }
@@ -396,6 +403,7 @@ int font_load(struct font *font, char *file) {
     { \
         fclose(fp); \
         free(glyphs); \
+        free(cmap); \
         free(contour_end_buffer); \
         free(flags); \
         free(glyph_stack); \
@@ -425,6 +433,7 @@ int font_load(struct font *font, char *file) {
         } \
  \
         free(glyphs); \
+        free(cmap); \
         free(glyph_stack); \
     }
 
@@ -952,6 +961,198 @@ LOAD:
     font->glyphs = glyphs;
     font->glyph_count = glyph_count;
 
+#undef ON_ERROR
+#define ON_ERROR() \
+    { \
+        font_u32_t i; \
+ \
+        fclose(fp); \
+ \
+        for(i=0;i<glyph_count;i++){ \
+            free(glyphs[i].contour_ends); \
+        } \
+ \
+        free(glyphs); \
+        free(cmap); \
+    }
+
+    {
+        /* Read the cmap table */
+
+        font_u32_t best_offset;
+
+        unsigned short int subtables;
+        unsigned short int i;
+
+        unsigned short int best_platform_id;
+        unsigned short int best_platform_specific_id;
+        unsigned short int best_format;
+
+        unsigned char b[MAX(2*2+4, 3*4)];
+
+        if(fseek(fp, table_pos[FONT_CMAP], SEEK_SET)){
+            ON_ERROR();
+
+            return FE_SEEK;
+        }
+
+        if(fread(b, 1, 2*2, fp) != 2*2){
+            ON_ERROR();
+
+            return FE_READ;
+        }
+
+        if(b[0] != 0 || b[1] != 0){
+            ON_ERROR();
+
+            return FE_CORRUPTED_CMAP;
+        }
+
+        subtables = (b[2]<<8)|b[3];
+
+        for(i=0;i<subtables;i++){
+            font_u32_t offset;
+
+            unsigned short int platform_id;
+            unsigned short int platform_specific_id;
+
+            if(fread(b, 1, 2*2+4, fp) != 2*2+4){
+                ON_ERROR();
+
+                return FE_READ;
+            }
+
+            platform_id = (b[0]<<8)|b[1];
+            platform_specific_id = (b[2]<<8)|b[3];
+
+            offset = (b[4]<<24)|(b[5]<<16)|(b[6]<<8)|b[7];
+
+            if(platform_id == 0){
+                /* Unicode */
+
+                if(platform_specific_id == 3 || platform_specific_id == 4){
+                    unsigned short int format;
+
+                    long r;
+
+                    if((r = ftell(fp)) < 0){
+                        ON_ERROR();
+
+                        return FE_TELL;
+                    }
+
+                    if(fseek(fp, table_pos[FONT_CMAP]+offset, SEEK_SET)){
+                        ON_ERROR();
+
+                        return FE_SEEK;
+                    }
+
+                    if(fread(b, 1, 2, fp) != 2){
+                        ON_ERROR();
+
+                        return FE_READ;
+                    }
+
+                    format = (b[0]<<8)|b[1];
+
+                    if(format == 4 || format == 12){
+                        best_platform_id = platform_id;
+                        best_platform_specific_id = platform_specific_id;
+                        best_offset = offset+2;
+                        best_format = format;
+
+                        break;
+                    }
+
+                    if(fseek(fp, r, SEEK_SET)){
+                        ON_ERROR();
+
+                        return FE_SEEK;
+                    }
+                }
+            }
+        }
+
+        if(i >= subtables){
+            ON_ERROR();
+
+            return FE_NO_SUPPORTED_CMAP_SUBTABLE;
+        }
+
+        if(best_platform_id == 0){
+            if(best_platform_specific_id == 3 ||
+               best_platform_specific_id == 4){
+                if(best_format == 4){
+                    unsigned short int segment_count;
+
+                    if(fseek(fp, 2*2, SEEK_CUR)){
+                        ON_ERROR();
+
+                        return FE_SEEK;
+                    }
+
+                    if(fread(b, 1, 2, fp) != 2){
+                        ON_ERROR();
+
+                        return FE_READ;
+                    }
+
+                    segment_count = (b[0]<<8)|b[1];
+
+                    /* TODO */
+                    ON_ERROR();
+
+                    return FE_UNSUPPORTED;
+                }else if(best_format == 12){
+                    font_u32_t group_count;
+                    font_u32_t n;
+
+                    if(fseek(fp, 2+2*4, SEEK_CUR)){
+                        ON_ERROR();
+
+                        return FE_SEEK;
+                    }
+
+                    if(fread(b, 1, 4, fp) != 4){
+                        ON_ERROR();
+
+                        return FE_READ;
+                    }
+
+                    group_count = (b[0]<<24)|(b[1]<<16)|(b[2]<<8)|b[3];
+                    for(n=0;i<group_count;n++){
+                        font_u32_t m;
+
+                        font_u32_t start_code;
+                        font_u32_t end_code;
+                        font_u32_t glyph_index;
+
+                        if(fread(b, 1, 3*4, fp) != 3*4){
+                            ON_ERROR();
+
+                            return FE_READ;
+                        }
+
+                        start_code = (b[0]<<24)|(b[1]<<16)|(b[2]<<8)|b[3];
+                        end_code = (b[4]<<24)|(b[5]<<16)|(b[6]<<8)|b[7];
+                        glyph_index = (b[8]<<24)|(b[9]<<16)|(b[10]<<8)|b[11];
+
+                        if(glyph_index >= glyph_count ||
+                           glyph_index+(end_code-start_code) >= glyph_count){
+                            ON_ERROR();
+
+                            return FE_CMAP_INVALID_GLYPH_INDEX;
+                        }
+
+                        for(m=start_code;m<end_code;m++){
+                            glyphs[m-start_code].code = m;
+                        }
+                    }
+                }
+            }
+       }
+    }
+
     fclose(fp);
 
     return FE_NONE;
@@ -975,8 +1176,8 @@ void font_render_glyph(struct font *font, font_u32_t chr,
         x = glyph->points[i].x/8;
         y = image->h-4-glyph->points[i].y/8;
 
-        if(x < 0 || x >= image->w ||
-           y < 0 || y >= image->h) continue;
+        if(x < 0 || x >= (font_s16_t)image->w ||
+           y < 0 || y >= (font_s16_t)image->h) continue;
 
         if(glyph->points[i].on_curve){
             image->data[y*image->w+x] = IMAGE_RGBAINT(255, 255, 255, 255);

@@ -80,14 +80,6 @@ struct glyph {
     unsigned int waits_loading : 1;
 };
 
-struct cmap {
-    font_u32_t group_num;
-    font_u32_t data_cur;
-
-    unsigned int format : 16;
-    unsigned int platform_id : 16;
-};
-
 enum {
     FONT_CMAP,
     FONT_GLYF,
@@ -103,25 +95,12 @@ enum {
 #define FONT_REQUIRED_TABLES 9
 
 struct font {
-    struct cmap cmap;
-
     struct glyph *glyphs;
-
-    font_u32_t best_map;
-
-    font_u32_t table_pos[FONT_REQUIRED_TABLES];
-
-    font_s16_t long_offsets;
-
-    unsigned int table_count : 16;
+    struct glyph **cmap;
 
     unsigned int glyph_count : 16;
-    unsigned int simple_points_max : 16;
 
     unsigned int units_per_em : 16;
-
-    unsigned int added_contours : 16;
-    unsigned int advance_width_count : 16;
 
     unsigned int style : 16;
 
@@ -139,6 +118,7 @@ struct font {
     x(FE_MISSING_TABLES) \
     x(FE_CORRUPTED_MAXP) \
     x(FE_CORRUPTED_HEAD) \
+    x(FE_CORRUPTED_CMAP) \
     x(FE_GLYPH_INDEX) \
     x(FE_CONTOUR_COUNT) \
     x(FE_TOO_MANY_POINTS) \
@@ -146,6 +126,8 @@ struct font {
     x(FE_INVALID_COMPONENT_IDX) \
     x(FE_STACK_OVERFLOW) \
     x(FE_INVALID_POINT_IDX) \
+    x(FE_NO_SUPPORTED_CMAP_SUBTABLE) \
+    x(FE_CMAP_INVALID_GLYPH_INDEX) \
     x(FE_MEM) \
     x(FE_UNSUPPORTED) \
     l(FE_UNKNOWN)
