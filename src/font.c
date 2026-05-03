@@ -621,7 +621,7 @@ int font_load(struct font *font, char *file) {
 
                             x += SIGNED((b[0]<<8)|b[1], 16);
 #if DEBUG_FONT
-                            printf("Two byte X coordinate. Offset: %d\n",
+                            printf("Two byte X coordinate. Offset: %ld\n",
                                    SIGNED((b[0]<<8)|b[1], 16));
 #endif
                         }
@@ -661,7 +661,7 @@ int font_load(struct font *font, char *file) {
 
                             y += SIGNED((b[0]<<8)|b[1], 16);
 #if DEBUG_FONT
-                            printf("Two byte Y coordinate. Offset: %d\n",
+                            printf("Two byte Y coordinate. Offset: %ld\n",
                                    SIGNED((b[0]<<8)|b[1], 16));
 #endif
                         }
@@ -695,8 +695,6 @@ int font_load(struct font *font, char *file) {
 
                 do{
                     long offset;
-                    font_u32_t n;
-
                     unsigned short int idx;
 
                     font_s16_t dx, dy;
@@ -823,8 +821,56 @@ int font_load(struct font *font, char *file) {
                              glyphs[idx].points[compound_idx].y;
                     }
 
-                    /* Load the contour ends and the points. */
-                    
+                    {
+                        /* Load the contour ends and the points. */
+
+                        font_u32_t n;
+                        void *ptr;
+
+                        ptr = realloc(glyphs[i].contour_ends,
+                                      (glyphs[i].contour_count+
+                                       glyphs[idx].contour_count)*
+                                      sizeof(unsigned short int));
+                        if(ptr == NULL){
+                            ON_ERROR();
+
+                            return FE_MEM;
+                        }
+                        glyphs[i].contour_ends = ptr;
+
+                        ptr = realloc(glyphs[i].points,
+                                      (glyphs[i].point_count+
+                                       glyphs[idx].point_count)*
+                                      sizeof(struct point));
+                        if(ptr == NULL){
+                            ON_ERROR();
+
+                            return FE_MEM;
+                        }
+                        glyphs[i].points = ptr;
+
+                        for(n=0;n<glyphs[idx].contour_count;n++){
+                            register font_u32_t b = glyphs[i].contour_count;
+
+                            glyphs[i].contour_ends[b+n] = glyphs[idx]
+                                    .contour_ends[n]+glyphs[i].point_count;
+                        }
+                        glyphs[i].contour_count += glyphs[idx].contour_count;
+
+                        for(n=0;n<glyphs[idx].point_count;n++){
+                            struct point point;
+
+                            register font_u32_t b = glyphs[i].point_count;
+
+                            point = glyphs[idx].points[n];
+
+                            point.x += dx;
+                            point.y += dy;
+
+                            glyphs[i].points[b+n] = point;
+                        }
+                        glyphs[i].point_count += glyphs[idx].point_count;
+                    }
 
                     if(comp_flags[1]&(1<<3)){
                         /* Simple scale */
