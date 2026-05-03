@@ -695,6 +695,8 @@ int font_load(struct font *font, char *file) {
 
                 do{
                     long offset;
+                    font_u32_t n;
+
                     unsigned short int idx;
 
                     font_s16_t dx, dy;
@@ -820,6 +822,9 @@ int font_load(struct font *font, char *file) {
                         dy = glyphs[i].points[compound_idx].y-
                              glyphs[idx].points[compound_idx].y;
                     }
+
+                    /* Load the contour ends and the points. */
+                    
 
                     if(comp_flags[1]&(1<<3)){
                         /* Simple scale */
