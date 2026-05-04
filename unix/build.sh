@@ -9,7 +9,7 @@ mkdir -p $bdir
 
 l=""
 for i in $(find ../src -type f -name "*.c"); do
-    o=$bdir/$i.o
+    o=$bdir/$(echo ../$i.o | sed "s/\.\.\///g")
 
     mkdir -p $(dirname $o)
 

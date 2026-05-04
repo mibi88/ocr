@@ -52,6 +52,8 @@ int main(int argc, char **argv) {
 #elif MAIN_DEBUG_FONT
     struct font font;
     struct image image;
+    struct glyph *glyph;
+    font_u32_t code;
     int rc;
 #endif
 
@@ -95,6 +97,12 @@ int main(int argc, char **argv) {
 
     image_free(&img);
 #elif MAIN_DEBUG_FONT
+    if(argc < 4){
+        fprintf(stderr, "USAGE: %s TTF_FILE CHAR OUPUT_IMAGE\n", *argv);
+
+        return 1;
+    }
+
     if((rc = font_load(&font, argv[1]))){
         puts(font_get_error_str(rc));
 
@@ -107,7 +115,20 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    font_render_glyph(&font, atoi(argv[2]), &image);
+    code = *argv[2];
+
+    glyph = font_lookup_char(&font, code);
+
+    if(glyph == NULL){
+        fputs("Glyph not found!\n", stderr);
+
+        font_free(&font);
+        image_free(&image);
+
+        return 1;
+    }
+
+    font_render_glyph(&font, glyph-font.glyphs, &image);
 
     if((rc = image_write(&image, argv[3], IT_BMP, 0))){
         puts(image_get_error_str(rc));

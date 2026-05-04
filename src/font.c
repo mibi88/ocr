@@ -54,6 +54,13 @@ char *font_get_error_str(int error) {
 #define SIGNED(a, b) ((a)&(1<<(b-1)) ? \
                       -(long int)(((a)^(((font_u32_t)1<<b)-1))+1) : (a))
 
+static int glyph_cmp(const void *_a, const void *_b) {
+    const struct glyph *a = *(const struct glyph**)_a;
+    const struct glyph *b = *(const struct glyph**)_b;
+
+    return a->code < b->code ? -1 : a->code > b->code;
+}
+
 int font_load(struct font *font, char *file) {
     FILE *fp;
 
@@ -1207,7 +1214,8 @@ LOAD:
                             for(m=start_code;m<end_code;m++){
                                 unsigned short int glyph_idx;
 
-                                if(fseek(fp, offset+2*(m-start_code)-2,
+                                if(fseek(fp, offset+2*(m-start_code)-
+                                             segment_count_2,
                                          SEEK_CUR)){
                                     ON_ERROR();
 
@@ -1231,6 +1239,8 @@ LOAD:
                                 if(glyph_idx >= glyph_count){
                                     ON_ERROR();
 
+                                    printf("%08x -- %u/%u\n",
+                                           m, glyph_idx, glyph_count);
                                     return FE_CMAP_INVALID_GLYPH_INDEX;
                                 }
 
@@ -1245,6 +1255,8 @@ LOAD:
                                 if(glyph_idx >= glyph_count){
                                     ON_ERROR();
 
+                                    printf("%08x -- %u/%u\n",
+                                           m, glyph_idx, glyph_count);
                                     return FE_CMAP_INVALID_GLYPH_INDEX;
                                 }
 
@@ -1310,6 +1322,7 @@ LOAD:
                            glyph_index+(end_code-start_code) >= glyph_count){
                             ON_ERROR();
 
+                            puts("err3");
                             return FE_CMAP_INVALID_GLYPH_INDEX;
                         }
 
@@ -1322,6 +1335,17 @@ LOAD:
         }
 
         font->cmap = cmap;
+    }
+
+    /* Sort the cmap array to do interpolation search on it */
+    qsort(cmap, glyph_count, sizeof(struct glyph*), glyph_cmp);
+
+    {
+        font_u32_t i;
+
+        for(i=0;i<glyph_count;i++){
+            printf("%d\n", cmap[i]->code);
+        }
     }
 
     fclose(fp);
@@ -1360,6 +1384,28 @@ void font_render_glyph(struct font *font, font_u32_t chr,
             image->data[y*image->w+x] = IMAGE_RGBAINT(0, 255, 0, 255);
         }
     }
+}
+
+struct glyph *font_lookup_char(struct font *font, font_u32_t code) {
+    font_u32_t a = 0;
+    font_u32_t b = font->glyph_count-1;
+
+    while(a < b){
+        font_u32_t m = (a+b)/2;
+
+        printf("%u %u %u\n", font->cmap[a]->code, font->cmap[m]->code,
+               font->cmap[b]->code);
+
+        if(font->cmap[m]->code > code){
+            a = m+1;
+        }else if(font->cmap[m]->code == code){
+            return font->cmap[m];
+        }else if(font->cmap[m]->code < code){
+            b = m;
+        }
+    }
+
+    return NULL;
 }
 
 void font_free(struct font *font) {

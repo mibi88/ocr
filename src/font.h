@@ -149,6 +149,7 @@ char *font_get_error_str(int error);
 int font_load(struct font *font, char *file);
 void font_render_glyph(struct font *font, font_u32_t chr,
                        struct image *image);
+struct glyph *font_lookup_char(struct font *font, font_u32_t code);
 void font_free(struct font *font);
 
 #endif
