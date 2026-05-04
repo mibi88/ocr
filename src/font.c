@@ -1340,14 +1340,6 @@ LOAD:
     /* Sort the cmap array to do interpolation search on it */
     qsort(cmap, glyph_count, sizeof(struct glyph*), glyph_cmp);
 
-    {
-        font_u32_t i;
-
-        for(i=0;i<glyph_count;i++){
-            printf("%d\n", cmap[i]->code);
-        }
-    }
-
     fclose(fp);
 
     return FE_NONE;
@@ -1393,15 +1385,12 @@ struct glyph *font_lookup_char(struct font *font, font_u32_t code) {
     while(a < b){
         font_u32_t m = (a+b)/2;
 
-        printf("%u %u %u\n", font->cmap[a]->code, font->cmap[m]->code,
-               font->cmap[b]->code);
-
         if(font->cmap[m]->code > code){
-            a = m+1;
+            b = m;
         }else if(font->cmap[m]->code == code){
             return font->cmap[m];
         }else if(font->cmap[m]->code < code){
-            b = m;
+            a = m+1;
         }
     }
 
