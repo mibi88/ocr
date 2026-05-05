@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
 #elif MAIN_DEBUG_FONT
     struct font font;
     struct image image;
-    struct glyph *glyph;
+    struct font_glyph *glyph;
     font_u32_t code;
     int rc;
 #endif

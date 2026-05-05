@@ -53,13 +53,13 @@ typedef int font_s16_t;
 typedef long int font_s16_t;
 #endif
 
-struct point {
+struct font_point {
     font_s32_t x, y;
     unsigned char on_curve;
 };
 
-struct glyph {
-    struct point *points;
+struct font_glyph {
+    struct font_point *points;
     unsigned short int *contour_ends;
 
     font_u32_t offset;
@@ -95,8 +95,8 @@ enum {
 #define FONT_REQUIRED_TABLES 9
 
 struct font {
-    struct glyph *glyphs;
-    struct glyph **cmap;
+    struct font_glyph *glyphs;
+    struct font_glyph **cmap;
 
     unsigned int glyph_count : 16;
 
@@ -107,6 +107,15 @@ struct font {
     unsigned int flags : 8;
 
     unsigned int vertical : 1;
+};
+
+struct font_renderer {
+    unsigned char *b;
+
+    font_u32_t max_size;
+
+    font_u32_t w;
+    font_u32_t h;
 };
 
 #define FONT_ERROR_X(x, l) \
@@ -149,7 +158,7 @@ char *font_get_error_str(int error);
 int font_load(struct font *font, char *file);
 void font_render_glyph(struct font *font, font_u32_t chr,
                        struct image *image);
-struct glyph *font_lookup_char(struct font *font, font_u32_t code);
+struct font_glyph *font_lookup_char(struct font *font, font_u32_t code);
 void font_free(struct font *font);
 
 #endif

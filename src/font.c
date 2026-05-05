@@ -55,17 +55,20 @@ char *font_get_error_str(int error) {
                       -(long int)(((a)^(((font_u32_t)1<<b)-1))+1) : (a))
 
 static int glyph_cmp(const void *_a, const void *_b) {
-    const struct glyph *a = *(const struct glyph**)_a;
-    const struct glyph *b = *(const struct glyph**)_b;
+    const struct font_glyph *a = *(const struct font_glyph**)_a;
+    const struct font_glyph *b = *(const struct font_glyph**)_b;
 
     return a->code < b->code ? -1 : a->code > b->code;
 }
 
+/* XXX: Can fonts use the same glyph index for multiple character code?
+ *      I don't handle that correctly currently.
+ */
 int font_load(struct font *font, char *file) {
     FILE *fp;
 
-    struct glyph *glyphs;
-    struct glyph **cmap;
+    struct font_glyph *glyphs;
+    struct font_glyph **cmap;
 
     font_u32_t table_pos[FONT_REQUIRED_TABLES];
     font_u32_t table_count;
@@ -208,8 +211,8 @@ int font_load(struct font *font, char *file) {
     }
 
     /* Allocate memory to store the glyph structures */
-    glyphs = malloc((glyph_count+1)*sizeof(struct glyph));
-    cmap = malloc(glyph_count*sizeof(struct glyph*));
+    glyphs = malloc((glyph_count+1)*sizeof(struct font_glyph));
+    cmap = malloc(glyph_count*sizeof(struct font_glyph*));
     if(glyphs == NULL || cmap == NULL){
         ON_ERROR();
 
@@ -599,7 +602,7 @@ int font_load(struct font *font, char *file) {
                     }
 
                     glyphs[i].points = malloc(point_count*
-                                              sizeof(struct point));
+                                              sizeof(struct font_point));
                     if(glyphs[i].points == NULL){
                         ON_ERROR();
 
@@ -861,7 +864,7 @@ int font_load(struct font *font, char *file) {
                         ptr = realloc(glyphs[i].points,
                                       (glyphs[i].point_count+
                                        glyphs[idx].point_count)*
-                                      sizeof(struct point));
+                                      sizeof(struct font_point));
                         if(ptr == NULL){
                             ON_ERROR();
 
@@ -878,7 +881,7 @@ int font_load(struct font *font, char *file) {
                         glyphs[i].contour_count += glyphs[idx].contour_count;
 
                         for(n=0;n<glyphs[idx].point_count;n++){
-                            struct point point;
+                            struct font_point point;
 
                             register font_u32_t b = glyphs[i].point_count;
 
@@ -1338,16 +1341,56 @@ LOAD:
     }
 
     /* Sort the cmap array to do interpolation search on it */
-    qsort(cmap, glyph_count, sizeof(struct glyph*), glyph_cmp);
+    qsort(cmap, glyph_count, sizeof(struct font_glyph*), glyph_cmp);
 
     fclose(fp);
 
     return FE_NONE;
 }
 
-void font_render_glyph(struct font *font, font_u32_t chr,
-                       struct image *image) {
-    struct glyph *glyph = font->glyphs+chr;
+static void line_left_up(struct font_renderer *renderer,
+                         font_s16_t x1, font_s16_t y1,
+                         font_s16_t x2, font_s16_t y2) {
+    font_s16_t dx = ;
+    font_s16_t dy;
+}
+
+static void line_left_down(struct font_renderer *renderer,
+                           font_s16_t x1, font_s16_t y1,
+                           font_s16_t x2, font_s16_t y2) {
+    /**/
+}
+
+static void line_right_up(struct font_renderer *renderer,
+                          font_s16_t x1, font_s16_t y1,
+                          font_s16_t x2, font_s16_t y2) {
+    /**/
+}
+
+static void line_right_down(struct font_renderer *renderer,
+                            font_s16_t x1, font_s16_t y1,
+                            font_s16_t x2, font_s16_t y2) {
+    font_s16_t dx2 = (x2-x1)<<1;
+    font_s16_t dy = y2-y1;
+
+    font_s16_t e = dy;
+
+    dy <<= 1;
+
+    for(;y1<y2;y1++,e+=dx2){
+        
+    }
+}
+
+static void line(struct font_renderer *renderer,
+                    font_s16_t x1, font_s16_t y1,
+                    font_s16_t x2, font_s16_t y2) {
+    /**/
+}
+
+void font_render_glyph(struct font_renderer *renderer,
+                       struct font *font, font_u32_t chr) {
+    struct font_glyph *glyph = font->glyphs+chr;
 
     font_u32_t i;
 
@@ -1378,7 +1421,7 @@ void font_render_glyph(struct font *font, font_u32_t chr,
     }
 }
 
-struct glyph *font_lookup_char(struct font *font, font_u32_t code) {
+struct font_glyph *font_lookup_char(struct font *font, font_u32_t code) {
     font_u32_t a = 0;
     font_u32_t b = font->glyph_count-1;
 
