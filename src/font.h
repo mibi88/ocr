@@ -115,6 +115,7 @@ struct font_renderer {
     font_u32_t max_size;
 
     font_u32_t w;
+    font_u32_t row_bytes;
     font_u32_t h;
 };
 

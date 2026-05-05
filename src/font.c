@@ -1370,28 +1370,66 @@ static void line_right_up(struct font_renderer *renderer,
 static void line_right_down(struct font_renderer *renderer,
                             font_s16_t x1, font_s16_t y1,
                             font_s16_t x2, font_s16_t y2) {
-    font_s16_t dx2 = (x2-x1)<<1;
-    font_s16_t dy = y2-y1;
-
-    font_s16_t e = dy;
-
-    dy <<= 1;
-
-    for(;y1<y2;y1++,e+=dx2){
-        
-    }
+    
 }
+
+#define ABS(x) (x < 0 ? -x : x)
+
+#define SET(x, y) \
+    { \
+        if(x >= 0 && x < renderer->w && \
+           y >= 0 && y < renderer->h){ \
+            renderer->b[y*renderer->row_bytes+x/4] |= 1<<(x%4); \
+        } \
+    }
 
 static void line(struct font_renderer *renderer,
                     font_s16_t x1, font_s16_t y1,
                     font_s16_t x2, font_s16_t y2) {
-    /**/
+    if(ABS(x2-x1) > ABS(y2-y1)){
+        if(y1 < y2){
+            font_s16_t dx2 = ABS((x2-x1)<<1);
+            font_s16_t dy = y2-y1;
+            font_s16_t e = dy;
+            font_s16_t a = x2 < x1 ? 1 : -1;
+            font_s16_t x = x1 < x2 ? x1 : x2;
+            dy <<= 1;
+
+            for(;y1<y2;y1++,e+=dx2){
+                if(e > dy){
+                    x += a;
+                    e = 0;
+                }
+                SET(x, y1);
+            }
+        }else{
+            font_s16_t dx2 = ABS((x2-x1)<<1);
+            font_s16_t dy = y1-y2;
+            font_s16_t e = dy;
+            font_s16_t a = x2 < x1 ? 1 : -1;
+            font_s16_t x = x1 < x2 ? x1 : x2;
+            dy <<= 1;
+
+            for(;y2<y1;y2++,e+=dx2){
+                if(e > dy){
+                    x += a;
+                    e = 0;
+                }
+                SET(x, y2);
+            }
+        }
+    }else{
+        if(x1 < x2){
+
+        }else{
+
+        }
+    }
 }
 
 void font_render_glyph(struct font_renderer *renderer,
-                       struct font *font, font_u32_t chr) {
-    struct font_glyph *glyph = font->glyphs+chr;
-
+                       struct font *font, struct font_glyph *glyph) {
+#if 0
     font_u32_t i;
 
 #if DEBUG_FONT
@@ -1419,6 +1457,7 @@ void font_render_glyph(struct font_renderer *renderer,
             image->data[y*image->w+x] = IMAGE_RGBAINT(0, 255, 0, 255);
         }
     }
+#endif
 }
 
 struct font_glyph *font_lookup_char(struct font *font, font_u32_t code) {
