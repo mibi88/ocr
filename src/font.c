@@ -1345,41 +1345,63 @@ LOAD:
 
     fclose(fp);
 
+    font->xmin = xmin;
+    font->ymin = ymin;
+    font->xmax = xmax;
+    font->ymax = ymax;
+
+    font->units_per_em = units_per_em;
+
     return FE_NONE;
 }
 
-static void line_left_up(struct font_renderer *renderer,
-                         font_s16_t x1, font_s16_t y1,
-                         font_s16_t x2, font_s16_t y2) {
-    font_s16_t dx = ;
-    font_s16_t dy;
+font_s32_t font_scale_size(struct font *font, font_s32_t dpi,
+                           font_s32_t points, font_s32_t size) {
+    return size*points*dpi/(72*font->units_per_em);
 }
 
-static void line_left_down(struct font_renderer *renderer,
-                           font_s16_t x1, font_s16_t y1,
-                           font_s16_t x2, font_s16_t y2) {
-    /**/
+struct font_glyph *font_lookup_char(struct font *font, font_u32_t code) {
+    font_u32_t a = 0;
+    font_u32_t b = font->glyph_count-1;
+
+    while(a < b){
+        font_u32_t m = (a+b)/2;
+
+        if(font->cmap[m]->code > code){
+            b = m;
+        }else if(font->cmap[m]->code == code){
+            return font->cmap[m];
+        }else if(font->cmap[m]->code < code){
+            a = m+1;
+        }
+    }
+
+    return NULL;
 }
 
-static void line_right_up(struct font_renderer *renderer,
-                          font_s16_t x1, font_s16_t y1,
-                          font_s16_t x2, font_s16_t y2) {
-    /**/
-}
+void font_free(struct font *font) {
+    font_u32_t i;
 
-static void line_right_down(struct font_renderer *renderer,
-                            font_s16_t x1, font_s16_t y1,
-                            font_s16_t x2, font_s16_t y2) {
-    
+    for(i=0;i<font->glyph_count;i++){
+        free(font->glyphs[i].points);
+        free(font->glyphs[i].contour_ends);
+    }
+
+    free(font->glyphs);
+    font->glyphs = NULL;
+    free(font->cmap);
+    font->cmap = NULL;
+
+    font->glyph_count = 0;
 }
 
 #define ABS(x) (x < 0 ? -x : x)
 
 #define SET(x, y) \
     { \
-        if(x >= 0 && x < renderer->w && \
-           y >= 0 && y < renderer->h){ \
-            renderer->b[y*renderer->row_bytes+x/4] |= 1<<(x%4); \
+        if(x >= 0 && x < (font_s32_t)renderer->w && \
+           y >= 0 && y < (font_s32_t)renderer->h){ \
+            renderer->b[y*renderer->row_bytes+x/4] |= 1<<(x%4*2); \
         } \
     }
 
@@ -1427,10 +1449,37 @@ static void line(struct font_renderer *renderer,
     }
 }
 
-void font_render_glyph(struct font_renderer *renderer,
-                       struct font *font, struct font_glyph *glyph) {
-#if 0
+int font_renderer_init(struct font_renderer *renderer, struct font *font,
+                       font_u32_t dpi, font_u32_t max_size) {
+    font_u32_t w = font_scale_size(font, dpi, max_size, font->xmax-font->xmin);
+    font_u32_t h = font_scale_size(font, dpi, max_size, font->ymax-font->ymin);
+    font_u32_t row_bytes = w/4+(w%4 != 0);
+
+    renderer->b = malloc(row_bytes*h);
+    if(renderer->b == NULL){
+        return FE_MEM;
+    }
+
+    renderer->x = 0;
+    renderer->baseline = 0;
+    renderer->glyph_height = 0;
+
+    renderer->w = w;
+    renderer->row_bytes = row_bytes;
+    renderer->h = h;
+
+    renderer->dpi = dpi;
+    renderer->max_size = max_size;
+
+    return FE_NONE;
+}
+
+void font_renderer_glyph(struct font_renderer *renderer,
+                         struct font *font, struct font_glyph *glyph,
+                         font_u32_t size) {
     font_u32_t i;
+
+    memset(renderer->b, 0, renderer->row_bytes*renderer->h);
 
 #if DEBUG_FONT
     printf("Glyph UTF-8 code: %08x\n", glyph->code);
@@ -1445,52 +1494,41 @@ void font_render_glyph(struct font_renderer *renderer,
                glyph->points[i].on_curve);
 #endif
 
-        x = glyph->points[i].x/8;
-        y = image->h-4-glyph->points[i].y/8;
+        x = font_scale_size(font, renderer->dpi, size, glyph->points[i].x);
+        y = font_scale_size(font, renderer->dpi, size,
+                            glyph->ymax-glyph->ymin-glyph->points[i].y);
 
-        if(x < 0 || x >= (font_s16_t)image->w ||
-           y < 0 || y >= (font_s16_t)image->h) continue;
+        if(x < 0 || x >= (font_s32_t)renderer->w ||
+           y < 0 || y >= (font_s32_t)renderer->h) continue;
 
-        if(glyph->points[i].on_curve){
-            image->data[y*image->w+x] = IMAGE_RGBAINT(255, 255, 255, 255);
-        }else{
-            image->data[y*image->w+x] = IMAGE_RGBAINT(0, 255, 0, 255);
-        }
+        SET(x, y);
     }
-#endif
 }
 
-struct font_glyph *font_lookup_char(struct font *font, font_u32_t code) {
-    font_u32_t a = 0;
-    font_u32_t b = font->glyph_count-1;
+void font_renderer_to_image(struct font_renderer *renderer,
+                            struct image *image,
+                            font_s16_t sx, font_s16_t sy) {
+    font_u32_t x, y;
+    /* TODO: Clip the area that can be drawn on the image first */
 
-    while(a < b){
-        font_u32_t m = (a+b)/2;
+    for(y=0;y<renderer->h;y++){
+        for(x=0;x<renderer->w;x++){
+            font_s32_t ix = (font_s32_t)x+sx;
+            font_s32_t iy = (font_s32_t)y+sy;
 
-        if(font->cmap[m]->code > code){
-            b = m;
-        }else if(font->cmap[m]->code == code){
-            return font->cmap[m];
-        }else if(font->cmap[m]->code < code){
-            a = m+1;
+            if(ix >= 0 && ix < (font_s32_t)image->w &&
+               iy >= 0 && iy < (font_s32_t)image->h){
+                pixel_t c = ((renderer->b[y*renderer->
+                                         row_bytes+x/4]>>(x%4*2))&1) ?
+                            IMAGE_RGBAINT(0, 0, 0, 0) :
+                            IMAGE_RGBAINT(255, 255, 255, 255);
+                image->data[iy*image->w+ix] = c;
+            }
         }
     }
-
-    return NULL;
 }
 
-void font_free(struct font *font) {
-    font_u32_t i;
-
-    for(i=0;i<font->glyph_count;i++){
-        free(font->glyphs[i].points);
-        free(font->glyphs[i].contour_ends);
-    }
-
-    free(font->glyphs);
-    font->glyphs = NULL;
-    free(font->cmap);
-    font->cmap = NULL;
-
-    font->glyph_count = 0;
+void font_renderer_free(struct font_renderer *renderer) {
+    free(renderer->b);
+    renderer->b = NULL;
 }

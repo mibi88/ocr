@@ -98,6 +98,9 @@ struct font {
     struct font_glyph *glyphs;
     struct font_glyph **cmap;
 
+    font_s32_t xmin, ymin;
+    font_s32_t xmax, ymax;
+
     unsigned int glyph_count : 16;
 
     unsigned int units_per_em : 16;
@@ -114,9 +117,15 @@ struct font_renderer {
 
     font_u32_t max_size;
 
+    font_u32_t dpi;
+
     font_u32_t w;
     font_u32_t row_bytes;
     font_u32_t h;
+
+    font_s32_t x;
+    font_s32_t baseline;
+    font_u32_t glyph_height;
 };
 
 #define FONT_ERROR_X(x, l) \
@@ -157,9 +166,19 @@ enum {
 
 char *font_get_error_str(int error);
 int font_load(struct font *font, char *file);
-void font_render_glyph(struct font *font, font_u32_t chr,
-                       struct image *image);
+font_s32_t font_scale_size(struct font *font, font_s32_t dpi,
+                           font_s32_t points, font_s32_t size);
 struct font_glyph *font_lookup_char(struct font *font, font_u32_t code);
 void font_free(struct font *font);
+
+int font_renderer_init(struct font_renderer *renderer, struct font *font,
+                       font_u32_t dpi, font_u32_t max_size);
+void font_renderer_glyph(struct font_renderer *renderer,
+                         struct font *font, struct font_glyph *glyph,
+                         font_u32_t size);
+void font_renderer_to_image(struct font_renderer *renderer,
+                            struct image *image,
+                            font_s16_t x, font_s16_t y);
+void font_renderer_free(struct font_renderer *renderer);
 
 #endif

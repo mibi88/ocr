@@ -51,10 +51,13 @@ int main(int argc, char **argv) {
     size_t x, y;
 #elif MAIN_DEBUG_FONT
     struct font font;
+    struct font_renderer renderer;
     struct image image;
     struct font_glyph *glyph;
     font_u32_t code;
     int rc;
+
+    int size = 32;
 #endif
 
 #if (defined(_WIN32) || defined(_WIN64)) && DEBUG
@@ -108,8 +111,13 @@ int main(int argc, char **argv) {
 
         return 1;
     }
+    if((rc = font_renderer_init(&renderer, &font, 72, size))){
+        puts(font_get_error_str(rc));
 
-    if((rc = image_create(&image, 200, 200, 72))){
+        return 1;
+    }
+
+    if((rc = image_create(&image, renderer.w, renderer.h, 72))){
         puts(image_get_error_str(rc));
 
         return 1;
@@ -128,7 +136,10 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    font_render_glyph(&font, glyph-font.glyphs, &image);
+    font_renderer_glyph(&renderer, &font, glyph, size);
+    font_renderer_to_image(&renderer, &image, renderer.x,
+                           renderer.baseline-
+                           (font_s32_t)renderer.glyph_height);
 
     if((rc = image_write(&image, argv[3], IT_BMP, 0))){
         puts(image_get_error_str(rc));
@@ -136,6 +147,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    font_renderer_free(&renderer);
     font_free(&font);
     image_free(&image);
 #endif
