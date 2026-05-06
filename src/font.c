@@ -1399,10 +1399,15 @@ void font_free(struct font *font) {
 
 #define SET(x, y, direction) \
     { \
-        if(x >= 0 && x < (font_s32_t)renderer->w && \
-           y >= 0 && y < (font_s32_t)renderer->h){ \
-            renderer->b[y*renderer->row_bytes+ \
-                        x/4] |= ((direction<<1)|1)<<(x%4*2); \
+        if((x) >= 0 && (x) < (font_s32_t)renderer->w && \
+           (y) >= 0 && (y) < (font_s32_t)renderer->h){ \
+            renderer->b[(y)*renderer->row_bytes+ \
+                        (x)/4] ^= 1<<((x)%4*2); \
+            renderer->b[(y)*renderer->row_bytes+ \
+                        (x)/4] |= direction<<((x)%4*2+1); \
+        }else if((x) < 0){ \
+            renderer->b[(y)*renderer->row_bytes] |= 1; \
+            renderer->b[(y)*renderer->row_bytes] |= direction<<1; \
         } \
     }
 
@@ -1412,10 +1417,6 @@ void font_free(struct font *font) {
 static void line(struct font_renderer *renderer,
                  font_s16_t x1, font_s16_t y1,
                  font_s16_t x2, font_s16_t y2) {
-#if DEBUG_FONT || 1
-    printf("%d, %d -- %d, %d\n", x1, y1, x2, y2);
-#endif
-
     if(ABS(x2-x1) < ABS(y2-y1)){
         if(y1 < y2){
             font_s16_t dx2 = ABS(x2-x1)*2;
@@ -1424,8 +1425,9 @@ static void line(struct font_renderer *renderer,
             font_s16_t a = x1 < x2 ? 1 : -1;
             dy *= 2;
 
-            for(;y1<y2;y1++,e+=dx2){
+            for(;y1<y2;y1++){
                 SET(x1, y1, y1 > y2);
+                e += dx2;
                 if(e >= dy){
                     x1 += a;
                     e -= dy;
@@ -1441,8 +1443,9 @@ static void line(struct font_renderer *renderer,
             font_s16_t a = x1 < x2 ? 1 : -1;
             dy *= 2;
 
-            for(;y1>y2;y1--,e+=dx2){
+            for(;y1>y2;y1--){
                 SET(x1, y1, y1 > y2);
+                e += dx2;
                 if(e >= dy){
                     x1 += a;
                     e -= dy;
@@ -1460,10 +1463,11 @@ static void line(struct font_renderer *renderer,
             font_s16_t a = y1 < y2 ? 1 : -1;
             dx *= 2;
 
-            for(;x1<x2;x1++,e+=dy2){
+            for(;x1<x2;x1++){
 #if !FILL
                 SET(x1, y1, y1 > y2);
 #endif
+                e += dy2;
                 if(e >= dx){
                     y1 += a;
 #if FILL
@@ -1473,7 +1477,7 @@ static void line(struct font_renderer *renderer,
                 }
             }
 #if !FILL
-            SET(x1, y2, y1 > y2);
+            SET(x1, y1, y1 > y2);
 #endif
         }else{
             font_s16_t dy2 = ABS(y2-y1)*2;
@@ -1482,10 +1486,11 @@ static void line(struct font_renderer *renderer,
             font_s16_t a = y1 < y2 ? 1 : -1;
             dx *= 2;
 
-            for(;x1>x2;x1--,e+=dy2){
+            for(;x1>x2;x1--){
 #if !FILL
                 SET(x1, y1, 0);
 #endif
+                e += dy2;
                 if(e >= dx){
                     y1 += a;
 #if FILL
@@ -1499,10 +1504,6 @@ static void line(struct font_renderer *renderer,
 #endif
         }
     }
-
-#if DEBUG_FONT || 1
-    if(x1 != x2 || y1 != y2) printf("Error: %d, %d\n", x1, y1);
-#endif
 }
 #else
 static void line(struct font_renderer *renderer,
@@ -1711,15 +1712,21 @@ void font_renderer_glyph(struct font_renderer *renderer,
         font_u32_t x, y;
 
         for(y=0;y<renderer->h;y++){
-            unsigned char state = 0;
+            unsigned char state = 0xFE;
             for(x=0;x<renderer->w;x++){
                 unsigned char c = (renderer->b[y*renderer->
-                                               row_bytes+x/4]>>(x%4*2))&2;
-                if(c&1){
-                    state = !state;
+                                               row_bytes+x/4]>>(x%4*2))&3;
+                if(c) printf("%d\n", c);
+                if((c&1)/* && ((state&2 != c&2) || state == 0xFE)*/){
+                    puts("flip");
+                    state ^= 1;
+                    state &= ~2;
+                    state |= c&2;
                 }
 
-                if(state) SET(x, y, 0);
+                if(state&1){
+                    renderer->b[y*renderer->row_bytes+x/4] |= 1<<(x%4*2);
+                }
             }
         }
     }
