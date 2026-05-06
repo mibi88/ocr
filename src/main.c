@@ -38,9 +38,10 @@
 
 #include "image.h"
 #include "font.h"
+#include "ocr.h"
 
 #define MAIN_DEBUG_IMAGE    0
-#define MAIN_DEBUG_FONT     1
+#define MAIN_DEBUG_FONT     0
 
 void e(void) {
     getchar();
@@ -126,6 +127,8 @@ static int debug_font(int argc, char **argv) {
     if((rc = font_renderer_init(&renderer, &font, dpi, size))){
         puts(font_get_error_str(rc));
 
+        font_free(&font);
+
         return 1;
     }
 
@@ -145,6 +148,9 @@ static int debug_font(int argc, char **argv) {
     str = malloc((len+1)*sizeof(wchar_t));
     if(str == NULL){
         fputs("Can't allocate string!\n", stderr);
+
+        font_renderer_free(&renderer);
+        font_free(&font);
 
         return 1;
     }
@@ -166,6 +172,9 @@ static int debug_font(int argc, char **argv) {
 
     if((rc = image_create(&image, w, renderer.h, dpi))){
         puts(image_get_error_str(rc));
+
+        font_renderer_free(&renderer);
+        font_free(&font);
 
         return 1;
     }
@@ -200,6 +209,10 @@ static int debug_font(int argc, char **argv) {
     if((rc = image_write(&image, argv[3], IT_BMP, 0))){
         puts(image_get_error_str(rc));
 
+        font_renderer_free(&renderer);
+        font_free(&font);
+        image_free(&image);
+
         return 1;
     }
 
@@ -210,22 +223,64 @@ static int debug_font(int argc, char **argv) {
     return 0;
 }
 #else
-static void ocr(int argc, char **argv) {
-    if(argc < 2){
-        fprintf("USAGE: %s [FILE]\n", *argv);
+static int ocr(int argc, char **argv) {
+    struct font font;
+    struct image image;
+    struct ocr ocr;
+
+    int rc;
+
+    int size = 200;
+
+    if(argc < 3){
+        fprintf(stderr, "USAGE: %s FONT IMAGE\n", *argv);
     }
 
-    if((rc = image_load(&img, argv[1]))){
+    if((rc = font_load(&font, argv[1]))){
+        puts(font_get_error_str(rc));
+
+        return 1;
+    }
+    if((rc = image_load(&image, argv[2]))){
         puts(image_get_error_str(rc));
+
+        font_free(&font);
 
         return 1;
     }
 
-    /* TODO: Find text bounding boxes */
+    if((rc = ocr_init(&ocr, &font, image.ppi, size))){
+        puts(ocr_get_error_str(rc));
 
-    /* TODO: Recognise strings */
+        image_free(&image);
+        font_free(&font);
 
-    image_free(&img);
+        return 1;
+    }
+
+    if((rc = ocr_recognise(&ocr, &image))){
+        puts(ocr_get_error_str(rc));
+
+        ocr_free(&ocr);
+        image_free(&image);
+        font_free(&font);
+
+        return 1;
+    }
+
+    {
+        size_t i;
+
+        for(i=0;i<ocr.boundingbox_count;i++){
+            struct ocr_boundingbox *bb = ocr.boundingboxes+i;
+
+            printf("%lu, %lu -- %lu, %lu\n", bb->x1, bb->y1, bb->x2, bb->y2);
+        }
+    }
+
+    ocr_free(&ocr);
+    image_free(&image);
+    font_free(&font);
 
     return 0;
 }

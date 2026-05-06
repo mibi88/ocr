@@ -36,11 +36,47 @@
 #include "image.h"
 #include "font.h"
 
-struct ocr {
-    struct font font;
-    struct image image;
-
-    
+struct ocr_boundingbox {
+    size_t x1, y1;
+    size_t x2, y2;
 };
+
+struct ocr {
+    struct font *font;
+
+    struct font_renderer renderer;
+
+    struct ocr_boundingbox *boundingboxes;
+    size_t boundingbox_count;
+
+    size_t line_treshold;
+    size_t char_treshold;
+    size_t min_height;
+};
+
+#define OCR_ERROR_X(x, l) \
+    x(OE_NONE) \
+    x(OE_RENDERER_INIT) \
+    x(OE_MEM) \
+    x(OE_UNSUPPORTED) \
+    l(OE_UNKNOWN)
+
+#define OCR_X_LIST(e) e,
+#define OCR_X_LIST_END(e) e
+
+enum {
+    OCR_ERROR_X(OCR_X_LIST, OCR_X_LIST_END)
+};
+
+#ifndef OCR_IMPL
+#undef OCR_ERROR_X
+#undef OCR_X_LIST
+#undef OCR_X_LIST_END
+#endif
+
+char *ocr_get_error_str(int error);
+int ocr_init(struct ocr *ocr, struct font *font, int dpi, int max_size);
+int ocr_recognise(struct ocr *ocr, struct image *image);
+void ocr_free(struct ocr *ocr);
 
 #endif
