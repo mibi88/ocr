@@ -1395,7 +1395,7 @@ void font_free(struct font *font) {
     font->glyph_count = 0;
 }
 
-#define ABS(x) (x < 0 ? -x : x)
+#define ABS(x) ((x) < 0 ? -(x) : (x))
 
 #define SET(x, y) \
     { \
@@ -1408,74 +1408,74 @@ void font_free(struct font *font) {
 static void line(struct font_renderer *renderer,
                     font_s16_t x1, font_s16_t y1,
                     font_s16_t x2, font_s16_t y2) {
-    if(ABS(x2-x1) > ABS(y2-y1)){
+    if(ABS(x2-x1) < ABS(y2-y1)){
         if(y1 < y2){
-            font_s16_t dx2 = ABS((x2-x1)<<1);
+            font_s16_t dx2 = ABS(x2-x1)*2;
             font_s16_t dy = y2-y1;
             font_s16_t e = dy;
             font_s16_t a = x2 < x1 ? 1 : -1;
-            font_s16_t x = x1 < x2 ? x1 : x2;
             dy <<= 1;
 
             for(;y1<y2;y1++,e+=dx2){
+                SET(x1, y1);
                 if(e > dy){
-                    x += a;
-                    e = 0;
+                    x1 += a;
+                    e -= dy;
                 }
-                SET(x, y1);
             }
+            SET(x1, y1);
         }else{
-#if 1
-            font_s16_t dx2 = ABS((x2-x1)<<1);
+            font_s16_t dx2 = ABS(x2-x1)*2;
             font_s16_t dy = y1-y2;
             font_s16_t e = dy;
             font_s16_t a = x2 < x1 ? 1 : -1;
-            font_s16_t x = x1 < x2 ? x1 : x2;
             dy <<= 1;
 
-            for(;y2<y1;y2++,e+=dx2){
+            for(;y1>y2;y1--,e+=dx2){
+                SET(x1, y1);
                 if(e > dy){
-                    x += a;
-                    e = 0;
+                    x1 += a;
+                    e -= dy;
                 }
-                SET(x, y2);
             }
-#endif
+            SET(x1, y1);
         }
     }else{
-#if 2
         if(x1 < x2){
+            font_s16_t dy2 = ABS(y2-y1)*2;
             font_s16_t dx = x2-x1;
-            font_s16_t dy2 = ABS((y2-y1)<<1);
             font_s16_t e = dx;
             font_s16_t a = y2 < y1 ? 1 : -1;
-            font_s16_t y = y1 < y2 ? y1 : y2;
             dx <<= 1;
+
+            puts("LINE");
 
             for(;x1<x2;x1++,e+=dy2){
+                SET(x1, y1);
                 if(e > dx){
-                    y += a;
-                    e = 0;
+                    y1 += a;
+                    e -= dx;
                 }
-                SET(x1, y);
             }
+            SET(x1, y1);
         }else{
+            font_s16_t dy2 = ABS(y2-y1)*2;
             font_s16_t dx = x1-x2;
-            font_s16_t dy2 = ABS((y2-y1)<<1);
             font_s16_t e = dx;
             font_s16_t a = y2 < y1 ? 1 : -1;
-            font_s16_t y = y1 < y2 ? y1 : y2;
             dx <<= 1;
 
-            for(;x2<x1;x2++,e+=dy2){
+            puts("LINE");
+
+            for(;x1>x2;x1--,e+=dy2){
+                SET(x1, y1);
                 if(e > dx){
-                    y += a;
-                    e = 0;
+                    y1 += a;
+                    e -= dx;
                 }
-                SET(x2, y);
             }
+            SET(x1, y1);
         }
-#endif
     }
 }
 
@@ -1518,18 +1518,20 @@ void font_renderer_glyph(struct font_renderer *renderer,
 
     memset(renderer->b, 0, renderer->row_bytes*renderer->h);
 
+#if 0
     for(a=0;a<2*3.141592;a+=3.141592/10){
         x1 = renderer->w/2;
         y1 = renderer->h/2;
 
-        x2 = x1+cos(a)*renderer->h*2/3;
-        y2 = y1+sin(a)*renderer->h*2/3;
+        x2 = x1+cos(a)*(renderer->h/2-2);
+        y2 = y1+sin(a)*(renderer->h/2-2);
 
         line(renderer, x1, y1, x2, y2);
         printf("%d, %d -- %d, %d\n", x1, y1, x2, y2);
     }
 
     return;
+#endif
 
 #if DEBUG_FONT
     printf("Glyph UTF-8 code: %08x\n", glyph->code);
