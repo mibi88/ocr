@@ -1542,10 +1542,8 @@ int font_renderer_init(struct font_renderer *renderer, struct font *font,
 void font_renderer_glyph(struct font_renderer *renderer,
                          struct font *font, struct font_glyph *glyph,
                          font_u32_t size) {
-    font_u32_t i, n;
-
-    font_s16_t x1, y1;
-    font_s16_t x2, y2;
+    font_u32_t i;
+    font_u32_t b = 0;
 
     float a;
 
@@ -1570,44 +1568,36 @@ void font_renderer_glyph(struct font_renderer *renderer,
     printf("Glyph UTF-8 code: %08x\n", glyph->code);
 #endif
 
-    x1 = font_scale_size(font, renderer->dpi, size, glyph->points[0].x);
-    y1 = font_scale_size(font, renderer->dpi, size,
-                         glyph->ymax-glyph->ymin-glyph->points[0].y);
+    for(i=0;i<glyph->contour_count;i++){
+        font_u32_t n;
 
-    for(i=1,n=0;i<glyph->point_count;i++){
-#if DEBUG_FONT
-        printf("Point: %d, %d, %d\n", glyph->points[i].x, glyph->points[i].y,
-               glyph->points[i].on_curve);
-#endif
+        font_s16_t x1, y1;
+        font_s16_t x2, y2;
 
-        if(glyph->points[i].on_curve) continue;
-        if(i == glyph->contour_ends[n]){
-            x1 = font_scale_size(font, renderer->dpi, size,
-                                 glyph->points[i].x);
-            y1 = font_scale_size(font, renderer->dpi, size,
-                                 glyph->ymax-glyph->ymin-glyph->points[i].y);
-            n++;
+        x1 = font_scale_size(font, renderer->dpi, size, glyph->points[b].x);
+        y1 = font_scale_size(font, renderer->dpi, size,
+                             glyph->ymax-glyph->ymin-glyph->points[b].y);
 
-            continue;
+        for(n=b+1;n<=glyph->contour_ends[i];n++){
+            x2 = font_scale_size(font, renderer->dpi, size,
+                                 glyph->points[n].x);
+            y2 = font_scale_size(font, renderer->dpi, size,
+                                 glyph->ymax-glyph->ymin-glyph->points[n].y);
+
+            line(renderer, x1, y1, x2, y2);
+
+            x1 = x2;
+            y1 = y2;
         }
 
-        x2 = font_scale_size(font, renderer->dpi, size, glyph->points[i].x);
-        y2 = font_scale_size(font, renderer->dpi, size,
-                             glyph->ymax-glyph->ymin-glyph->points[i].y);
+        x1 = font_scale_size(font, renderer->dpi, size, glyph->points[b].x);
+        y1 = font_scale_size(font, renderer->dpi, size,
+                             glyph->ymax-glyph->ymin-glyph->points[b].y);
 
-        /*SET(x, y);*/
-        printf("%d, %d -- %d, %d\n", x1, y1, x2, y2);
-        line(renderer, x1, y1, x2, y2);
+        line(renderer, x2, y2, x1, y1);
 
-        x1 = x2;
-        y1 = y2;
+        b = glyph->contour_ends[i]+1;
     }
-
-    x1 = font_scale_size(font, renderer->dpi, size, glyph->points[0].x);
-    y1 = font_scale_size(font, renderer->dpi, size,
-                         glyph->ymax-glyph->ymin-glyph->points[0].y);
-
-    line(renderer, x2, y2, x1, y1);
 }
 
 void font_renderer_to_image(struct font_renderer *renderer,
