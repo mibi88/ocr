@@ -43,28 +43,13 @@ void e(void) {
     getchar();
 }
 
-int main(int argc, char **argv) {
 #if MAIN_DEBUG_IMAGE
+static int debug_image(int argc, char **argv) {
     struct image img;
     int rc;
 
     size_t x, y;
-#elif MAIN_DEBUG_FONT
-    struct font font;
-    struct font_renderer renderer;
-    struct image image;
-    struct font_glyph *glyph;
-    font_u32_t code;
-    int rc;
 
-    int size = 150;
-#endif
-
-#if (defined(_WIN32) || defined(_WIN64)) && DEBUG
-    atexit(e);
-#endif
-
-#if MAIN_DEBUG_IMAGE
     (void)argc;
     (void)argv;
 
@@ -99,7 +84,21 @@ int main(int argc, char **argv) {
     }
 
     image_free(&img);
+
+    return 0;
+}
+
 #elif MAIN_DEBUG_FONT
+static int debug_font(int argc, char **argv) {
+    struct font font;
+    struct font_renderer renderer;
+    struct image image;
+    struct font_glyph *glyph;
+    font_u32_t code;
+    int rc;
+
+    int size = 150;
+
     if(argc < 4){
         fprintf(stderr, "USAGE: %s TTF_FILE CHAR OUPUT_IMAGE\n", *argv);
 
@@ -150,10 +149,42 @@ int main(int argc, char **argv) {
     font_renderer_free(&renderer);
     font_free(&font);
     image_free(&image);
-#endif
-
-    (void)argc;
-    (void)argv;
 
     return 0;
+}
+#else
+static void ocr(int argc, char **argv) {
+    if(argc < 2){
+        fprintf("USAGE: %s [FILE]\n", *argv);
+    }
+
+    if((rc = image_load(&img, argv[1]))){
+        puts(image_get_error_str(rc));
+
+        return 1;
+    }
+
+    /* TODO: Find text bounding boxes */
+
+    /* TODO: Recognise strings */
+
+    image_free(&img);
+
+    return 0;
+}
+
+#endif
+
+int main(int argc, char **argv) {
+#if (defined(_WIN32) || defined(_WIN64)) && DEBUG
+    atexit(e);
+#endif
+
+#if MAIN_DEBUG_IMAGE
+    return debug_image(argc, argv);
+#elif MAIN_DEBUG_FONT
+    return debug_font(argc, argv);
+#else
+    return ocr(argc, argv);
+#endif
 }
