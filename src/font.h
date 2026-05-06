@@ -101,6 +101,10 @@ struct font {
     font_s32_t xmin, ymin;
     font_s32_t xmax, ymax;
 
+    font_s16_t max_ascender;
+    font_s16_t max_descender;
+    font_s16_t line_gap;
+
     unsigned int glyph_count : 16;
 
     unsigned int units_per_em : 16;
@@ -138,6 +142,7 @@ struct font_renderer {
     x(FE_CORRUPTED_MAXP) \
     x(FE_CORRUPTED_HEAD) \
     x(FE_CORRUPTED_CMAP) \
+    x(FE_CORRUPTED_HHEA) \
     x(FE_GLYPH_INDEX) \
     x(FE_CONTOUR_COUNT) \
     x(FE_TOO_MANY_POINTS) \
@@ -147,6 +152,7 @@ struct font_renderer {
     x(FE_INVALID_POINT_IDX) \
     x(FE_NO_SUPPORTED_CMAP_SUBTABLE) \
     x(FE_CMAP_INVALID_GLYPH_INDEX) \
+    x(FE_TOO_FEW_LONG_H_METRICS) \
     x(FE_MEM) \
     x(FE_UNSUPPORTED) \
     l(FE_UNKNOWN)

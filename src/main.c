@@ -31,7 +31,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <stdlib.h>
+#include <string.h>
+#include <locale.h>
 #include <stdio.h>
+#include <wchar.h>
 
 #include "image.h"
 #include "font.h"
@@ -94,10 +97,20 @@ static int debug_font(int argc, char **argv) {
     struct font_renderer renderer;
     struct image image;
     struct font_glyph *glyph;
-    font_u32_t code;
+    wchar_t *str;
+    char *tmp;
+    size_t len;
+    size_t i;
+    int char_len;
+    int w;
     int rc;
 
     int size = 150;
+    int dpi = 72;
+
+    int x;
+
+    setlocale(LC_CTYPE, "");
 
     if(argc < 4){
         fprintf(stderr, "USAGE: %s TTF_FILE CHAR OUPUT_IMAGE\n", *argv);
@@ -110,35 +123,79 @@ static int debug_font(int argc, char **argv) {
 
         return 1;
     }
-    if((rc = font_renderer_init(&renderer, &font, 72, size))){
+    if((rc = font_renderer_init(&renderer, &font, dpi, size))){
         puts(font_get_error_str(rc));
 
         return 1;
     }
 
-    if((rc = image_create(&image, renderer.w, renderer.h, 72))){
+    len = 0;
+    tmp = argv[2];
+    while((char_len = mblen(tmp, strlen(tmp))) > 0){
+        len++;
+        tmp += char_len;
+    }
+    if(char_len < 0){
+        fputs("Invalid string!\n", stderr);
+        puts(tmp);
+
+        return 1;
+    }
+
+    str = malloc((len+1)*sizeof(wchar_t));
+    if(str == NULL){
+        fputs("Can't allocate string!\n", stderr);
+
+        return 1;
+    }
+
+    mbstowcs(str, argv[2], len);
+    str[len] = 0;
+
+    w = 0;
+    for(i=0;str[i];i++){
+        wchar_t c = str[i];
+
+        /* TODO: Support UTF-8. */
+        glyph = font_lookup_char(&font, c);
+
+        if(glyph == NULL) glyph = font.glyphs;
+
+        w += font_scale_size(&font, dpi, size, glyph->advance_width);
+    }
+
+    if((rc = image_create(&image, w, renderer.h, dpi))){
         puts(image_get_error_str(rc));
 
         return 1;
     }
 
-    code = *argv[2];
+    memset(image.data, 0xFF, image.w*image.h*sizeof(pixel_t));
 
-    glyph = font_lookup_char(&font, code);
+    x = 0;
+    for(i=0;str[i];i++){
+        wchar_t c = str[i];
 
-    if(glyph == NULL){
-        fputs("Glyph not found!\n", stderr);
+        /* TODO: Support UTF-8. */
+        glyph = font_lookup_char(&font, c);
 
-        font_free(&font);
-        image_free(&image);
+        if(glyph == NULL){
+            fputs("Glyph not found!\n", stderr);
 
-        return 1;
+            glyph = font.glyphs;
+        }
+
+        font_renderer_glyph(&renderer, &font, glyph, size);
+        font_renderer_to_image(&renderer, &image, renderer.x+x+
+                               font_scale_size(&font, dpi, size,
+                                               glyph->left_side_bearing),
+                               font_scale_size(&font, dpi, size,
+                                               font.max_ascender+font.line_gap-
+                                               font.max_descender)-
+                               renderer.baseline);
+
+        x += font_scale_size(&font, dpi, size, glyph->advance_width);
     }
-
-    font_renderer_glyph(&renderer, &font, glyph, size);
-    font_renderer_to_image(&renderer, &image, renderer.x,
-                           renderer.baseline-
-                           (font_s32_t)renderer.glyph_height);
 
     if((rc = image_write(&image, argv[3], IT_BMP, 0))){
         puts(image_get_error_str(rc));

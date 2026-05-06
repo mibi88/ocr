@@ -87,6 +87,8 @@ int font_load(struct font *font, char *file) {
     unsigned short int points_max;
     unsigned short int contour_max;
 
+    unsigned short int long_h_metric_count;
+
     unsigned char long_offsets;
 
     /* TODO: Verify the font's integrity */
@@ -1343,6 +1345,100 @@ LOAD:
     /* Sort the cmap array to do interpolation search on it */
     qsort(cmap, glyph_count, sizeof(struct font_glyph*), glyph_cmp);
 
+    {
+        /* Read the hhea table */
+
+        unsigned char b[MAX(4, 3*2)];
+
+        if(fseek(fp, table_pos[FONT_HHEA], SEEK_SET)){
+            ON_ERROR();
+
+            return FE_SEEK;
+        }
+
+        if(fread(b, 1, 4, fp) != 4){
+            ON_ERROR();
+
+            return FE_READ;
+        }
+        if(b[0] != 0 || b[1] != 1 || b[2] != 0 || b[3] != 0){
+            ON_ERROR();
+
+            return FE_CORRUPTED_HHEA;
+        }
+
+        if(fread(b, 1, 3*2, fp) != 3*2){
+            ON_ERROR();
+
+            return FE_READ;
+        }
+
+        font->max_ascender = SIGNED((b[0]<<8)|b[1], 16);
+        font->max_descender = SIGNED((b[2]<<8)|b[3], 16);
+        font->line_gap = SIGNED((b[4]<<8)|b[5], 16);
+
+        if(fseek(fp, 12*2, SEEK_CUR)){
+            ON_ERROR();
+
+            return FE_SEEK;
+        }
+
+        if(fread(b, 1, 2, fp) != 2){
+            ON_ERROR();
+
+            return FE_READ;
+        }
+
+        long_h_metric_count = (b[0]<<8)|b[1];
+        if(long_h_metric_count < 1){
+            ON_ERROR();
+
+            return FE_TOO_FEW_LONG_H_METRICS;
+        }
+    }
+
+    {
+        /* Read the glyph metrics from the hmtx table */
+
+        unsigned short int i;
+
+        unsigned short int advance_width;
+
+        if(fseek(fp, table_pos[FONT_HMTX], SEEK_SET)){
+            ON_ERROR();
+
+            return FE_SEEK;
+        }
+
+        for(i=0;i<long_h_metric_count;i++){
+            unsigned char b[4];
+
+            if(fread(b, 1, 2*2, fp) != 2*2){
+                ON_ERROR();
+
+                return FE_READ;
+            }
+
+            glyphs[i].advance_width = (b[0]<<8)|b[1];
+            glyphs[i].left_side_bearing = (b[2]<<8)|b[3];
+        }
+
+        advance_width = glyphs[long_h_metric_count-1].advance_width;
+
+        for(;i<glyph_count;i++){
+            unsigned char b[2];
+
+            if(fread(b, 1, 2, fp) != 2){
+                ON_ERROR();
+
+                return FE_READ;
+            }
+
+            glyphs[i].advance_width = advance_width;
+            glyphs[i].left_side_bearing = (b[0]<<8)|b[1];
+        }
+    }
+
     fclose(fp);
 
     font->xmin = xmin;
@@ -1579,7 +1675,9 @@ int font_renderer_init(struct font_renderer *renderer, struct font *font,
     return FE_NONE;
 }
 
+#if 0
 #include <math.h>
+#endif
 
 /* FIXME: Fix glyph rendering */
 void font_renderer_glyph(struct font_renderer *renderer,
@@ -1723,6 +1821,9 @@ void font_renderer_glyph(struct font_renderer *renderer,
         }
     }
 #endif
+
+    renderer->baseline = font_scale_size(font, renderer->dpi, size,
+                                         glyph->ymax);
 }
 
 void font_renderer_to_image(struct font_renderer *renderer,
@@ -1738,20 +1839,20 @@ void font_renderer_to_image(struct font_renderer *renderer,
 
             if(ix >= 0 && ix < (font_s32_t)image->w &&
                iy >= 0 && iy < (font_s32_t)image->h){
+                pixel_t c = ((renderer->b[y*renderer->
+                             row_bytes+x/4]>>(x%4*2))&1);
+                if(c){
 #if DEBUG_FONT
-                pixel_t c = ((renderer->b[y*renderer->
-                                         row_bytes+x/4]>>(x%4*2))&1) ?
-                            IMAGE_RGBAINT(0, (renderer->b[y*renderer->
-                                             row_bytes+x/4]>>(x%4*2)&2)*127,
-                                             0, 0) :
-                            IMAGE_RGBAINT(255, 255, 255, 255);
+                    c =  c ? IMAGE_RGBAINT(0, (renderer->b[y*renderer->
+                                               row_bytes+x/4]>>(x%4*2)&2)*127,
+                                           0, 0) :
+                             IMAGE_RGBAINT(255, 255, 255, 255)
 #else
-                pixel_t c = ((renderer->b[y*renderer->
-                                         row_bytes+x/4]>>(x%4*2))&1) ?
-                            IMAGE_RGBAINT(0, 0, 0, 0) :
+                    c = c ? IMAGE_RGBAINT(0, 0, 0, 0) :
                             IMAGE_RGBAINT(255, 255, 255, 255);
 #endif
-                image->data[iy*image->w+ix] = c;
+                    image->data[iy*image->w+ix] = c;
+                }
             }
         }
     }
