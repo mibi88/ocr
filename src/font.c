@@ -1406,41 +1406,51 @@ void font_free(struct font *font) {
         } \
     }
 
+#define FILL 0
+
 #if 1
 static void line(struct font_renderer *renderer,
                  font_s16_t x1, font_s16_t y1,
                  font_s16_t x2, font_s16_t y2) {
+#if DEBUG_FONT || 1
+    printf("%d, %d -- %d, %d\n", x1, y1, x2, y2);
+#endif
+
     if(ABS(x2-x1) < ABS(y2-y1)){
         if(y1 < y2){
             font_s16_t dx2 = ABS(x2-x1)*2;
             font_s16_t dy = y2-y1;
             font_s16_t e = dy;
             font_s16_t a = x1 < x2 ? 1 : -1;
-            dy <<= 1;
+            dy *= 2;
 
             for(;y1<y2;y1++,e+=dx2){
-                SET(x1, y1, 0);
-                if(e > dy){
+                SET(x1, y1, y1 > y2);
+                if(e >= dy){
                     x1 += a;
                     e -= dy;
                 }
             }
-            SET(x1, y1, 0);
+#if !FILL
+            SET(x1, y1, y1 > y2);
+#endif
         }else{
             font_s16_t dx2 = ABS(x2-x1)*2;
             font_s16_t dy = y1-y2;
             font_s16_t e = dy;
             font_s16_t a = x1 < x2 ? 1 : -1;
-            dy <<= 1;
+            dy *= 2;
 
             for(;y1>y2;y1--,e+=dx2){
-                SET(x1, y1, 0);
-                if(e > dy){
+                SET(x1, y1, y1 > y2);
+                if(e >= dy){
                     x1 += a;
                     e -= dy;
                 }
             }
-            SET(x1, y1, 0);
+#if !FILL
+            SET(x1, y1, y1 > y2);
+#endif
         }
     }else{
         if(x1 < x2){
@@ -1448,35 +1458,51 @@ static void line(struct font_renderer *renderer,
             font_s16_t dx = x2-x1;
             font_s16_t e = dx;
             font_s16_t a = y1 < y2 ? 1 : -1;
-            dx <<= 1;
+            dx *= 2;
 
             for(;x1<x2;x1++,e+=dy2){
-                SET(x1, y1, 0);
-                if(e > dx){
+#if !FILL
+                SET(x1, y1, y1 > y2);
+#endif
+                if(e >= dx){
                     y1 += a;
+#if FILL
+                    SET(x1, y1, y1 > y2);
+#endif
                     e -= dx;
                 }
             }
-            SET(x1, y1, 0);
+#if !FILL
+            SET(x1, y2, y1 > y2);
+#endif
         }else{
             font_s16_t dy2 = ABS(y2-y1)*2;
             font_s16_t dx = x1-x2;
             font_s16_t e = dx;
             font_s16_t a = y1 < y2 ? 1 : -1;
-            dx <<= 1;
+            dx *= 2;
 
             for(;x1>x2;x1--,e+=dy2){
+#if !FILL
                 SET(x1, y1, 0);
-                if(e > dx){
+#endif
+                if(e >= dx){
                     y1 += a;
+#if FILL
+                    SET(x1, y1, y1 > y2);
+#endif
                     e -= dx;
                 }
             }
-            SET(x1, y1, 0);
+#if !FILL
+            SET(x1, y1, y1 > y2);
+#endif
         }
     }
 
+#if DEBUG_FONT || 1
     if(x1 != x2 || y1 != y2) printf("Error: %d, %d\n", x1, y1);
+#endif
 }
 #else
 static void line(struct font_renderer *renderer,
@@ -1511,6 +1537,44 @@ static void line(struct font_renderer *renderer,
     }
 }
 #endif
+
+#define STEPS 16
+
+static void curve(struct font_renderer *renderer,
+                  font_s16_t x1, font_s16_t y1,
+                  font_s16_t x2, font_s16_t y2,
+                  font_s16_t cx, font_s16_t cy) {
+    font_s16_t i;
+
+    font_s16_t ix1, iy1;
+
+    ix1 = x1;
+    iy1 = y1;
+
+    for(i=1;i<=STEPS;i++){
+        font_s16_t ix2, iy2;
+
+        /*
+        ix2 = x1*(STEPS-i)*(STEPS-i)/(STEPS*STEPS)+
+              2*cx*i*(STEPS-i)/(STEPS*STEPS)+
+              x2*i*i/(STEPS*STEPS);
+        iy2 = y1*(STEPS-i)*(STEPS-i)/(STEPS*STEPS)+
+              2*cy*i*(STEPS-i)/(STEPS*STEPS)+
+              y2*i*i/(STEPS*STEPS);
+        */
+
+        float t = (float)i/STEPS;
+        ix2 = x1*(1-t)*(1-t)+2*cx*t*(1-t)+x2*t*t;
+        iy2 = y1*(1-t)*(1-t)+2*cy*t*(1-t)+y2*t*t;
+
+        /*printf("%d, %d -- %d, %d\n", ix1, iy1, ix2, iy2);*/
+
+        line(renderer, ix1, iy1, ix2, iy2);
+
+        ix1 = ix2;
+        iy1 = iy1;
+    }
+}
 
 int font_renderer_init(struct font_renderer *renderer, struct font *font,
                        font_u32_t dpi, font_u32_t max_size) {
@@ -1551,6 +1615,9 @@ void font_renderer_glyph(struct font_renderer *renderer,
 
 #if 0
     for(a=0;a<2*3.141592;a+=3.141592/10){
+        font_s16_t x1, y1;
+        font_s16_t x2, y2;
+
         x1 = renderer->w/2;
         y1 = renderer->h/2;
 
@@ -1574,6 +1641,10 @@ void font_renderer_glyph(struct font_renderer *renderer,
         font_s16_t x1, y1;
         font_s16_t x2, y2;
 
+        font_s16_t cx, cy;
+
+        unsigned char has_control_point = 0;
+
         x1 = font_scale_size(font, renderer->dpi, size, glyph->points[b].x);
         y1 = font_scale_size(font, renderer->dpi, size,
                              glyph->ymax-glyph->ymin-glyph->points[b].y);
@@ -1584,20 +1655,75 @@ void font_renderer_glyph(struct font_renderer *renderer,
             y2 = font_scale_size(font, renderer->dpi, size,
                                  glyph->ymax-glyph->ymin-glyph->points[n].y);
 
-            line(renderer, x1, y1, x2, y2);
+            if(!glyph->points[n].on_curve){
+                cx = x2;
+                cy = y2;
+
+                /*
+                has_control_point = 1;
+
+                continue;
+                */
+            }
+
+            if(has_control_point){
+                puts("curve");
+
+                line(renderer, x1, y1, x2, y2);
+                line(renderer, x1, y1, cx, cy);
+                line(renderer, cx, cy, x2, y2);
+
+                /*curve(renderer, x1, y1, x2, y2, cx, cy);*/
+
+                has_control_point = 0;
+            }else{
+                line(renderer, x1, y1, x2, y2);
+            }
 
             x1 = x2;
             y1 = y2;
         }
 
-        x1 = font_scale_size(font, renderer->dpi, size, glyph->points[b].x);
-        y1 = font_scale_size(font, renderer->dpi, size,
-                             glyph->ymax-glyph->ymin-glyph->points[b].y);
+        if(has_control_point){
+            x2 = font_scale_size(font, renderer->dpi, size,
+                                 glyph->points[b].x);
+            y2 = font_scale_size(font, renderer->dpi, size,
+                                 glyph->ymax-glyph->ymin-glyph->points[b].y);
 
-        line(renderer, x2, y2, x1, y1);
+            line(renderer, x1, y1, x2, y2);
+            line(renderer, x1, y1, cx, cy);
+            line(renderer, cx, cy, x2, y2);
+
+            /*curve(renderer, x1, y1, x2, y2, cx, cy);*/
+        }else{
+            x2 = font_scale_size(font, renderer->dpi, size,
+                                 glyph->points[b].x);
+            y2 = font_scale_size(font, renderer->dpi, size,
+                                 glyph->ymax-glyph->ymin-glyph->points[b].y);
+
+            line(renderer, x1, y1, x2, y2);
+        }
 
         b = glyph->contour_ends[i]+1;
     }
+#if FILL
+    {
+        font_u32_t x, y;
+
+        for(y=0;y<renderer->h;y++){
+            unsigned char state = 0;
+            for(x=0;x<renderer->w;x++){
+                unsigned char c = (renderer->b[y*renderer->
+                                               row_bytes+x/4]>>(x%4*2))&2;
+                if(c&1){
+                    state = !state;
+                }
+
+                if(state) SET(x, y, 0);
+            }
+        }
+    }
+#endif
 }
 
 void font_renderer_to_image(struct font_renderer *renderer,
