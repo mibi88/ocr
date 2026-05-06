@@ -1397,87 +1397,120 @@ void font_free(struct font *font) {
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
-#define SET(x, y) \
+#define SET(x, y, direction) \
     { \
         if(x >= 0 && x < (font_s32_t)renderer->w && \
            y >= 0 && y < (font_s32_t)renderer->h){ \
-            renderer->b[y*renderer->row_bytes+x/4] |= 1<<(x%4*2); \
+            renderer->b[y*renderer->row_bytes+ \
+                        x/4] |= ((direction<<1)|1)<<(x%4*2); \
         } \
     }
 
+#if 1
 static void line(struct font_renderer *renderer,
-                    font_s16_t x1, font_s16_t y1,
-                    font_s16_t x2, font_s16_t y2) {
+                 font_s16_t x1, font_s16_t y1,
+                 font_s16_t x2, font_s16_t y2) {
     if(ABS(x2-x1) < ABS(y2-y1)){
         if(y1 < y2){
             font_s16_t dx2 = ABS(x2-x1)*2;
             font_s16_t dy = y2-y1;
             font_s16_t e = dy;
-            font_s16_t a = x2 < x1 ? 1 : -1;
+            font_s16_t a = x1 < x2 ? 1 : -1;
             dy <<= 1;
 
             for(;y1<y2;y1++,e+=dx2){
-                SET(x1, y1);
+                SET(x1, y1, 0);
                 if(e > dy){
                     x1 += a;
                     e -= dy;
                 }
             }
-            SET(x1, y1);
+            SET(x1, y1, 0);
         }else{
             font_s16_t dx2 = ABS(x2-x1)*2;
             font_s16_t dy = y1-y2;
             font_s16_t e = dy;
-            font_s16_t a = x2 < x1 ? 1 : -1;
+            font_s16_t a = x1 < x2 ? 1 : -1;
             dy <<= 1;
 
             for(;y1>y2;y1--,e+=dx2){
-                SET(x1, y1);
+                SET(x1, y1, 0);
                 if(e > dy){
                     x1 += a;
                     e -= dy;
                 }
             }
-            SET(x1, y1);
+            SET(x1, y1, 0);
         }
     }else{
         if(x1 < x2){
             font_s16_t dy2 = ABS(y2-y1)*2;
             font_s16_t dx = x2-x1;
             font_s16_t e = dx;
-            font_s16_t a = y2 < y1 ? 1 : -1;
+            font_s16_t a = y1 < y2 ? 1 : -1;
             dx <<= 1;
 
-            puts("LINE");
-
             for(;x1<x2;x1++,e+=dy2){
-                SET(x1, y1);
+                SET(x1, y1, 0);
                 if(e > dx){
                     y1 += a;
                     e -= dx;
                 }
             }
-            SET(x1, y1);
+            SET(x1, y1, 0);
         }else{
             font_s16_t dy2 = ABS(y2-y1)*2;
             font_s16_t dx = x1-x2;
             font_s16_t e = dx;
-            font_s16_t a = y2 < y1 ? 1 : -1;
+            font_s16_t a = y1 < y2 ? 1 : -1;
             dx <<= 1;
 
-            puts("LINE");
-
             for(;x1>x2;x1--,e+=dy2){
-                SET(x1, y1);
+                SET(x1, y1, 0);
                 if(e > dx){
                     y1 += a;
                     e -= dx;
                 }
             }
-            SET(x1, y1);
+            SET(x1, y1, 0);
+        }
+    }
+
+    if(x1 != x2 || y1 != y2) printf("Error: %d, %d\n", x1, y1);
+}
+#else
+static void line(struct font_renderer *renderer,
+                 font_s16_t x1, font_s16_t y1,
+                 font_s16_t x2, font_s16_t y2) {
+    int dx = ABS(x2-x1);
+    int sx = ((x1 < x2)<<1)-1;
+    int dy = -ABS(y2-y1);
+    int sy = ((y1 < y2)<<1)-1;
+    int error = dx + dy;
+    int e2;
+    for(;;){
+        SET(x1, y1, 0);
+        if(x1 == x2 && y1 == y2){
+            break;
+        }
+        e2 = 2*error;
+        if(e2 >= dy){
+            if(x1 == x2){
+                break;
+            }
+            error = error+dy;
+            x1 = x1 + sx;
+        }
+        if(e2 <= dx){
+            if(y1 == y2){
+                break;
+            }
+            error = error+dx;
+            y1 = y1+sy;
         }
     }
 }
+#endif
 
 int font_renderer_init(struct font_renderer *renderer, struct font *font,
                        font_u32_t dpi, font_u32_t max_size) {
@@ -1509,7 +1542,7 @@ int font_renderer_init(struct font_renderer *renderer, struct font *font,
 void font_renderer_glyph(struct font_renderer *renderer,
                          struct font *font, struct font_glyph *glyph,
                          font_u32_t size) {
-    font_u32_t i;
+    font_u32_t i, n;
 
     font_s16_t x1, y1;
     font_s16_t x2, y2;
@@ -1537,31 +1570,44 @@ void font_renderer_glyph(struct font_renderer *renderer,
     printf("Glyph UTF-8 code: %08x\n", glyph->code);
 #endif
 
-    for(i=1;i<glyph->point_count;i++){
+    x1 = font_scale_size(font, renderer->dpi, size, glyph->points[0].x);
+    y1 = font_scale_size(font, renderer->dpi, size,
+                         glyph->ymax-glyph->ymin-glyph->points[0].y);
+
+    for(i=1,n=0;i<glyph->point_count;i++){
 #if DEBUG_FONT
         printf("Point: %d, %d, %d\n", glyph->points[i].x, glyph->points[i].y,
                glyph->points[i].on_curve);
 #endif
 
-        x1 = font_scale_size(font, renderer->dpi, size, glyph->points[i-1].x);
-        y1 = font_scale_size(font, renderer->dpi, size,
-                             glyph->ymax-glyph->ymin-glyph->points[i-1].y);
+        if(glyph->points[i].on_curve) continue;
+        if(i == glyph->contour_ends[n]){
+            x1 = font_scale_size(font, renderer->dpi, size,
+                                 glyph->points[i].x);
+            y1 = font_scale_size(font, renderer->dpi, size,
+                                 glyph->ymax-glyph->ymin-glyph->points[i].y);
+            n++;
+
+            continue;
+        }
+
         x2 = font_scale_size(font, renderer->dpi, size, glyph->points[i].x);
         y2 = font_scale_size(font, renderer->dpi, size,
                              glyph->ymax-glyph->ymin-glyph->points[i].y);
 
         /*SET(x, y);*/
+        printf("%d, %d -- %d, %d\n", x1, y1, x2, y2);
         line(renderer, x1, y1, x2, y2);
+
+        x1 = x2;
+        y1 = y2;
     }
 
     x1 = font_scale_size(font, renderer->dpi, size, glyph->points[0].x);
     y1 = font_scale_size(font, renderer->dpi, size,
                          glyph->ymax-glyph->ymin-glyph->points[0].y);
-    x2 = font_scale_size(font, renderer->dpi, size, glyph->points[i-1].x);
-    y2 = font_scale_size(font, renderer->dpi, size,
-                         glyph->ymax-glyph->ymin-glyph->points[i-1].y);
 
-    line(renderer, x1, y1, x2, y2);
+    line(renderer, x2, y2, x1, y1);
 }
 
 void font_renderer_to_image(struct font_renderer *renderer,

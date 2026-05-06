@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
     font_u32_t code;
     int rc;
 
-    int size = 32;
+    int size = 150;
 #endif
 
 #if (defined(_WIN32) || defined(_WIN64)) && DEBUG
