@@ -109,6 +109,14 @@ int ocr_init(struct ocr *ocr, struct font *font, int dpi, int max_size) {
     qsort(ocr->coverage, font->glyph_count, sizeof(struct ocr_coverage),
           coverage_cmp);
 
+    {
+        size_t i;
+
+        for(i=0;i<font->glyph_count;i++){
+            printf("%u\n", ocr->coverage[i]);
+        }
+    }
+
     return OE_NONE;
 }
 
@@ -241,10 +249,51 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
     size_t x;
 
     for(x=bb->x1;x<bb->x2;){
+        size_t y;
+        size_t colored_pixels;
+
+        do{
+            colored_pixels = 0;
+            for(y=bb->y1;y<bb->y2;y++){
+                if((image->data[y*image->w+x]&
+                    IMAGE_RGBAINT(255, 255, 255, 0)) !=
+                   IMAGE_RGBAINT(255, 255, 255, 0)) colored_pixels++;
+            }
+            if(colored_pixels*256/(bb->y2-bb->y1) <= ocr->char_treshold){
+                x++;
+            }else{
+                break;
+            }
+        }while(1);
+
         font_u32_t start = 0;
         font_u32_t end = ocr->font->glyph_count;
-        font_u32_t middle = (start+end)/2;
-        x++;
+        while(start < end){
+            font_u32_t middle = (start+end)/2;
+
+            font_u32_t best_coverage;
+
+            int too_many_pixels_filled = 0;
+
+            while(middle &&
+                  ocr->coverage[middle-1].coverage == ocr->coverage[middle]
+                                                                   .coverage){
+                middle--;
+            }
+
+            while(middle < ocr->font->glyph_count-1 &&
+                  ocr->coverage[middle].coverage == ocr->coverage[middle+1]
+                                                                 .coverage){
+                font_s32_t score;
+                font_renderer_glyph(&ocr->renderer, ocr->font,
+                                    ocr->font->glyphs+i,
+                                    ocr->renderer.max_size);
+
+                
+
+                middle++;
+            }
+        }
     }
 
     return 0;

@@ -1825,6 +1825,8 @@ void font_renderer_glyph(struct font_renderer *renderer,
 
     renderer->baseline = font_scale_size(font, renderer->dpi, size,
                                          glyph->ymax);
+    renderer->glyph_height = font_scale_size(font, renderer->dpi, size,
+                                             glyph->ymax-glyph->ymin);
 }
 
 void font_renderer_to_image(struct font_renderer *renderer,
