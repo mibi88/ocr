@@ -1501,7 +1501,8 @@ void font_free(struct font *font) {
                         (x)/4] ^= 1<<((x)%4*2); \
             renderer->b[(y)*renderer->row_bytes+ \
                         (x)/4] |= (direction)<<((x)%4*2+1); \
-        }else if((x) < 0){ \
+        }else if((x) < 0 && \
+                 (y) >= 0 && (y) < (font_s32_t)renderer->h){ \
             renderer->b[(y)*renderer->row_bytes] |= 1; \
             renderer->b[(y)*renderer->row_bytes] |= (direction)<<1; \
         } \

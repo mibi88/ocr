@@ -228,8 +228,6 @@ static int ocr(int argc, char **argv) {
     struct image out;
     struct ocr ocr;
 
-    struct font_renderer renderer;
-
     int rc;
 
     int size = 200;
@@ -254,7 +252,6 @@ static int ocr(int argc, char **argv) {
     if((rc = image_create(&out, image.w, image.h, image.ppi))){
         puts(image_get_error_str(rc));
 
-        font_renderer_free(&renderer);
         font_free(&font);
 
         return 1;
@@ -303,7 +300,6 @@ static int ocr(int argc, char **argv) {
     if((rc = image_write(&out, "out.bmp", IT_BMP, 0))){
         puts(image_get_error_str(rc));
 
-        font_renderer_free(&renderer);
         font_free(&font);
         image_free(&image);
 

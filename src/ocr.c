@@ -31,6 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <stdlib.h>
+#include <stdio.h>
 
 #define OCR_IMPL
 
@@ -38,6 +39,8 @@
 
 #define STR(s) #s,
 #define STR_LAST(s) #s
+
+#define SIZE_INC 64
 
 char *ocr_get_error_str(int error) {
     char *errors[] = {
@@ -47,8 +50,49 @@ char *ocr_get_error_str(int error) {
     return errors[error];
 }
 
+static void generate_coverage_info(struct ocr *ocr) {
+    font_u32_t i;
+
+    for(i=0;i<ocr->font->glyph_count;i++){
+        size_t y;
+        font_u32_t coverage = 0;
+
+        font_renderer_glyph(&ocr->renderer, ocr->font, ocr->font->glyphs+i,
+                            ocr->renderer.max_size);
+
+        for(y=0;y<ocr->renderer.h;y++){
+            size_t x;
+
+            for(x=0;x<ocr->renderer.w;x++){
+                if((ocr->renderer
+                        .b[y*ocr->renderer.row_bytes+x/4]>>(x%4*2))&1){
+                    coverage++;
+                }
+            }
+        }
+
+        ocr->coverage[i].coverage = coverage;
+        ocr->coverage[i].glyph = ocr->font->glyphs+i;
+    }
+}
+
+static int coverage_cmp(const void *_a, const void *_b) {
+    const struct ocr_coverage *a = _a;
+    const struct ocr_coverage *b = _b;
+
+    return a->coverage < b->coverage ? -1 : a->coverage > b->coverage;
+}
+
+
 int ocr_init(struct ocr *ocr, struct font *font, int dpi, int max_size) {
+    ocr->coverage = malloc(font->glyph_count*sizeof(struct ocr_coverage));
+    if(ocr->coverage == NULL){
+        return OE_MEM;
+    }
     if(font_renderer_init(&ocr->renderer, font, dpi, max_size)){
+        free(ocr->coverage);
+        ocr->coverage = NULL;
+
         return OE_RENDERER_INIT;
     }
     ocr->font = font;
@@ -60,10 +104,15 @@ int ocr_init(struct ocr *ocr, struct font *font, int dpi, int max_size) {
 
     ocr->boundingbox_count = 0;
 
+    generate_coverage_info(ocr);
+
+    qsort(ocr->coverage, font->glyph_count, sizeof(struct ocr_coverage),
+          coverage_cmp);
+
     return OE_NONE;
 }
 
-static int ocr_find_bbs(struct ocr *ocr, struct image *image){
+static int find_bbs(struct ocr *ocr, struct image *image){
     /* TODO: Make something better. */
 
     {
@@ -103,6 +152,10 @@ static int ocr_find_bbs(struct ocr *ocr, struct image *image){
                     }
 
                     ocr->boundingboxes = ptr;
+
+                    ocr->boundingboxes[ocr->boundingbox_count].text = NULL;
+                    ocr->boundingboxes[ocr->boundingbox_count].max = 0;
+                    ocr->boundingboxes[ocr->boundingbox_count].len = 0;
 
                     ocr->boundingboxes[ocr->boundingbox_count]
                                       .y1 = line_start_y;
@@ -164,13 +217,56 @@ static int ocr_find_bbs(struct ocr *ocr, struct image *image){
     return 0;
 }
 
+static int add_char(struct ocr *ocr, struct ocr_boundingbox *bb,
+                    font_u32_t c) {
+    font_u32_t *ptr;
+
+    if(bb->len >= bb->max){
+        ptr = realloc(bb->text, (bb->max+SIZE_INC)*sizeof(font_u32_t));
+
+        if(ptr == NULL) return 1;
+        bb->text = ptr;
+        bb->max += SIZE_INC;
+    }
+
+    bb->text[bb->len] = c;
+
+    bb->len++;
+
+    return 0;
+}
+
+static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
+                        struct image *image) {
+    size_t x;
+
+    for(x=bb->x1;x<bb->x2;){
+        font_u32_t start = 0;
+        font_u32_t end = ocr->font->glyph_count;
+        font_u32_t middle = (start+end)/2;
+        x++;
+    }
+
+    return 0;
+}
+
 int ocr_recognise(struct ocr *ocr, struct image *image) {
+    size_t i;
+
     int rc;
 
     free(ocr->boundingboxes);
     ocr->boundingboxes = NULL;
 
-    if((rc = ocr_find_bbs(ocr, image))) return rc;
+    if((rc = find_bbs(ocr, image))) return rc;
+
+    for(i=0;i<ocr->boundingbox_count;i++){
+        struct ocr_boundingbox *bb;
+
+        bb = ocr->boundingboxes+i;
+
+        if((rc = process_line(ocr, bb, image))) return rc;
+    }
 
     return OE_NONE;
 }

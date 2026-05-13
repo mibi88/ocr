@@ -37,8 +37,18 @@
 #include "font.h"
 
 struct ocr_boundingbox {
+    font_u32_t *text;
+
     size_t x1, y1;
     size_t x2, y2;
+
+    size_t len;
+    size_t max;
+};
+
+struct ocr_coverage {
+    font_u32_t coverage;
+    struct font_glyph *glyph;
 };
 
 struct ocr {
@@ -47,6 +57,9 @@ struct ocr {
     struct font_renderer renderer;
 
     struct ocr_boundingbox *boundingboxes;
+
+    struct ocr_coverage *coverage;
+
     size_t boundingbox_count;
 
     size_t line_treshold;
