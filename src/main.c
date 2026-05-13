@@ -138,9 +138,8 @@ static int debug_font(int argc, char **argv) {
         len++;
         tmp += char_len;
     }
-    if(char_len < 0){
+    if(char_len < 0 && strlen(tmp)){
         fputs("Invalid string!\n", stderr);
-        puts(tmp);
 
         return 1;
     }
@@ -226,7 +225,10 @@ static int debug_font(int argc, char **argv) {
 static int ocr(int argc, char **argv) {
     struct font font;
     struct image image;
+    struct image out;
     struct ocr ocr;
+
+    struct font_renderer renderer;
 
     int rc;
 
@@ -244,6 +246,15 @@ static int ocr(int argc, char **argv) {
     if((rc = image_load(&image, argv[2]))){
         puts(image_get_error_str(rc));
 
+        font_free(&font);
+
+        return 1;
+    }
+
+    if((rc = image_create(&out, image.w, image.h, image.ppi))){
+        puts(image_get_error_str(rc));
+
+        font_renderer_free(&renderer);
         font_free(&font);
 
         return 1;
@@ -268,14 +279,35 @@ static int ocr(int argc, char **argv) {
         return 1;
     }
 
+    memcpy(out.data, image.data, image.w*image.h*sizeof(pixel_t));
+
     {
         size_t i;
 
         for(i=0;i<ocr.boundingbox_count;i++){
             struct ocr_boundingbox *bb = ocr.boundingboxes+i;
 
-            printf("%lu, %lu -- %lu, %lu\n", bb->x1, bb->y1, bb->x2, bb->y2);
+            size_t n;
+
+            for(n=bb->x1;n<bb->x2;n++){
+                out.data[bb->y1*out.w+n] = IMAGE_RGBAINT(255, 0, 0, 0);
+                out.data[bb->y2*out.w+n] = IMAGE_RGBAINT(255, 0, 0, 0);
+            }
+            for(n=bb->y1;n<bb->y2;n++){
+                out.data[n*out.w+bb->x1] = IMAGE_RGBAINT(255, 0, 0, 0);
+                out.data[n*out.w+bb->x2] = IMAGE_RGBAINT(255, 0, 0, 0);
+            }
         }
+    }
+
+    if((rc = image_write(&out, "out.bmp", IT_BMP, 0))){
+        puts(image_get_error_str(rc));
+
+        font_renderer_free(&renderer);
+        font_free(&font);
+        image_free(&image);
+
+        return 1;
     }
 
     ocr_free(&ocr);
