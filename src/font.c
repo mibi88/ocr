@@ -779,7 +779,6 @@ int font_load(struct font *font, char *file) {
 
                     if(comp_flags[1]&(1<<1)){
                         /* args are coordinates */
-                        font_s16_t x, y;
 
                         if(comp_flags[1]&1){
                             /* 2 bytes */
@@ -995,14 +994,14 @@ LOAD:
     {
         /* Read the cmap table */
 
-        font_u32_t best_offset;
-
         unsigned short int subtables;
         unsigned short int i;
 
         unsigned short int best_platform_id;
         unsigned short int best_platform_specific_id;
         unsigned short int best_format;
+
+        font_u32_t best_offset;
 
         unsigned char b[MAX(2*2+4, 3*4)];
 
@@ -1094,6 +1093,9 @@ LOAD:
 
             return FE_NO_SUPPORTED_CMAP_SUBTABLE;
         }
+
+        /* FIXME: Seek to the best offset */
+        (void)best_offset;
 
         if(best_platform_id == 0){
             if(best_platform_specific_id == 3 ||
@@ -1306,7 +1308,7 @@ LOAD:
                     }
 
                     group_count = (b[0]<<24)|(b[1]<<16)|(b[2]<<8)|b[3];
-                    for(n=0;i<group_count;n++){
+                    for(n=0;n<group_count;n++){
                         font_u32_t m;
 
                         font_u32_t start_code;
@@ -1447,6 +1449,8 @@ LOAD:
     font->ymax = ymax;
 
     font->units_per_em = units_per_em;
+
+    font->style = style;
 
     return FE_NONE;
 }
@@ -1615,6 +1619,7 @@ static void line(struct font_renderer *renderer,
 
 #define STEPS 16
 
+#if 0
 static void curve(struct font_renderer *renderer,
                   font_s16_t x1, font_s16_t y1,
                   font_s16_t x2, font_s16_t y2,
@@ -1650,6 +1655,7 @@ static void curve(struct font_renderer *renderer,
         iy1 = iy1;
     }
 }
+#endif
 
 int font_renderer_init(struct font_renderer *renderer, struct font *font,
                        font_u32_t dpi, font_u32_t max_size) {
@@ -1662,7 +1668,9 @@ int font_renderer_init(struct font_renderer *renderer, struct font *font,
         return FE_MEM;
     }
 
-    renderer->x = 0;
+    renderer->glyph_width = 0;
+    renderer->advance_width = 0;
+    renderer->left_side_bearing = 0;
     renderer->baseline = 0;
     renderer->glyph_height = 0;
 
@@ -1687,7 +1695,9 @@ void font_renderer_glyph(struct font_renderer *renderer,
     font_u32_t i;
     font_u32_t b = 0;
 
+#if 0
     float a;
+#endif
 
     memset(renderer->b, 0, renderer->row_bytes*renderer->h);
 
@@ -1805,6 +1815,10 @@ void font_renderer_glyph(struct font_renderer *renderer,
         for(y=0;y<renderer->h;y++){
             unsigned char state = 0;
             unsigned char init = 0;
+
+            /* TODO: Fill things correctly */
+            (void)init;
+
             for(x=0;x<renderer->w;x++){
                 unsigned char c = (renderer->b[y*renderer->
                                                row_bytes+x/4]>>(x%4*2))&3;
@@ -1825,6 +1839,12 @@ void font_renderer_glyph(struct font_renderer *renderer,
 
     renderer->baseline = font_scale_size(font, renderer->dpi, size,
                                          glyph->ymax);
+    renderer->glyph_width = font_scale_size(font, renderer->dpi, size,
+                                            glyph->xmax-glyph->xmin);
+    renderer->advance_width = font_scale_size(font, renderer->dpi, size,
+                                              glyph->advance_width);
+    renderer->left_side_bearing = font_scale_size(font, renderer->dpi, size,
+                                                  glyph->left_side_bearing);
     renderer->glyph_height = font_scale_size(font, renderer->dpi, size,
                                              glyph->ymax-glyph->ymin);
 }

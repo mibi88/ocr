@@ -37,7 +37,13 @@
 #include "font.h"
 
 struct ocr_boundingbox {
-    font_u32_t *text;
+    struct {
+        font_u32_t code;
+        long int x_offset;
+        long int y_offset;
+        long int x_scale;
+        long int y_scale;
+    } *text;
 
     size_t x1, y1;
     size_t x2, y2;
@@ -65,6 +71,22 @@ struct ocr {
     size_t line_treshold;
     size_t char_treshold;
     size_t min_height;
+
+    long int x_offset_min;
+    long int x_offset_max;
+
+    long int y_offset_min;
+    long int y_offset_max;
+
+    long int x_scale_min;
+    long int x_scale_max;
+
+    long int y_scale_min;
+    long int y_scale_max;
+
+    long int scale_step;
+
+    unsigned int high_accuracy : 1;
 };
 
 #define OCR_ERROR_X(x, l) \
