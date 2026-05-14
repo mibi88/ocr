@@ -268,14 +268,14 @@ static int add_char(struct ocr_boundingbox *bb,
 
     bb->len++;
 
-    return 0;
+    return OE_NONE;
 }
 
 static long int test_glyph(struct ocr *ocr, struct image *image, size_t glyph,
                            size_t x1, size_t y1, size_t y2,
                            long int *x_offset_out, long int *y_offset_out,
                            long int *x_scale_out, long int *y_scale_out,
-                           size_t *not_matching_out) {
+                           long int *advance_out, size_t *not_matching_out) {
     long int sy;
 
     long int best_score = 0;
@@ -285,6 +285,8 @@ static long int test_glyph(struct ocr *ocr, struct image *image, size_t glyph,
     long int best_y_offset = 0;
     long int best_x_scale = 256;
     long int best_y_scale = 256;
+
+    long int best_advance = 1;
 
     font_renderer_glyph(&ocr->renderer, ocr->font,
                         ocr->font->glyphs+glyph,
@@ -319,11 +321,14 @@ static long int test_glyph(struct ocr *ocr, struct image *image, size_t glyph,
                     x_scale+=ocr->scale_step){
                     long int y;
 
-                    long int test_x = x1+(sx+ocr->renderer.left_side_bearing)*
-                                      x_scale/256;
-                    long int test_y = y1+sy*x_scale/256;
+                    long int test_x = x1+sx*x_scale/256;
+                    long int test_y = y1+sy*y_scale/256;
 
                     long int score = 0;
+
+                    long int advance = ocr->renderer.advance_width*x_scale*
+                                       (y2-y1)/
+                                       (256*ocr->renderer.glyph_height);
 
                     size_t not_matching = 0;
 
@@ -334,7 +339,8 @@ static long int test_glyph(struct ocr *ocr, struct image *image, size_t glyph,
                             unsigned char glyph_color = 0;
                             unsigned char image_color = 0;
 
-                            long int ix = test_x+x*x_scale/256;
+                            long int ix = test_x+x*x_scale*(y2-y1)/
+                                          (256*ocr->renderer.glyph_height);
                             long int iy = test_y+y*y_scale*(y2-y1)/
                                           (256*ocr->renderer.glyph_height);
 
@@ -361,6 +367,7 @@ static long int test_glyph(struct ocr *ocr, struct image *image, size_t glyph,
                         best_y_offset = sy;
                         best_x_scale = x_scale;
                         best_y_scale = y_scale;
+                        best_advance = advance;
                     }
                 }
             }
@@ -372,6 +379,8 @@ static long int test_glyph(struct ocr *ocr, struct image *image, size_t glyph,
 
     *x_scale_out = best_x_scale;
     *y_scale_out = best_y_scale;
+
+    *advance_out = best_advance;
 
     *not_matching_out = least_not_matching;
 
@@ -392,11 +401,15 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
         long best_x_scale;
         long best_y_scale;
 
-        font_u32_t best_advance_width;
+        long best_advance;
+
+        long dx;
 
         font_u32_t glyph;
 
         font_u32_t i;
+
+        printf("X: %lu\n", x);
 
         do{
             size_t colored_pixels = 0;
@@ -418,6 +431,8 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
          * slightly modified version of binary search using the ocr->coverage
          * array. */
         for(i=0;i<ocr->font->glyph_count;i++){
+            unsigned long int not_matching;
+
             long int score;
 
             long int x_offset;
@@ -425,7 +440,7 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
             long int x_scale;
             long int y_scale;
 
-            unsigned long int not_matching;
+            long int advance;
 
             (void)score;
 
@@ -433,14 +448,16 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
 
             score = test_glyph(ocr, image, i, x, bb->y1, bb->y2,
                                &x_offset, &y_offset, &x_scale, &y_scale,
-                               &not_matching);
+                               &advance, &not_matching);
 
             if(not_matching == 0){
                 if((rc = add_char(bb, ocr->font->glyphs[i].code,
                                   x_offset, y_offset, x_scale, y_scale))){
                     return rc;
                 }
-                x += (ocr->renderer.advance_width+x_offset)*x_scale/256;
+
+                dx = advance+x_offset*x_scale/256;
+                if(!dx) dx = 1;
 
                 goto CONTINUE;
             }else if(not_matching < least_not_matching){
@@ -452,7 +469,7 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
                 best_x_scale = x_scale;
                 best_y_scale = y_scale;
 
-                best_advance_width = ocr->renderer.advance_width;
+                best_advance = ocr->renderer.advance_width;
             }
         }
 
@@ -461,8 +478,12 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
             return rc;
         }
 
-        x += (best_advance_width+best_x_offset)*best_x_scale/256;
+        dx = best_advance+best_x_offset*best_x_scale/256;
+        if(!dx) dx = 1;
+
 CONTINUE:
+        x += dx;
+
         /* Labels need to be followed by a statement */
         (void)rc;
     }

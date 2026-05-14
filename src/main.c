@@ -294,6 +294,7 @@ static int ocr(int argc, char **argv) {
                 out.data[n*out.w+bb->x1] = IMAGE_RGBAINT(255, 0, 0, 0);
                 out.data[n*out.w+bb->x2] = IMAGE_RGBAINT(255, 0, 0, 0);
             }
+            out.data[bb->y2*out.w+bb->x2] = IMAGE_RGBAINT(255, 0, 0, 0);
         }
     }
 
