@@ -104,18 +104,18 @@ int ocr_init(struct ocr *ocr, struct font *font, int dpi, int max_size) {
     ocr->char_treshold = 0;
     ocr->min_height = 5;
 
-#if 0
+#if !OCR_COVERAGE_TEST
     ocr->x_offset_min = -1;
     ocr->x_offset_max = +1;
 
     ocr->y_offset_min = -1;
     ocr->y_offset_max = +1;
 
-    ocr->x_scale_min = 192;
-    ocr->x_scale_max = 320;
+    ocr->x_scale_min = 240;
+    ocr->x_scale_max = 272;
 
-    ocr->y_scale_min = 192;
-    ocr->y_scale_max = 320;
+    ocr->y_scale_min = 240;
+    ocr->y_scale_max = 272;
 #else
     ocr->x_offset_min = 0;
     ocr->x_offset_max = 0;
@@ -361,12 +361,20 @@ static long int test_glyph(struct ocr *ocr, struct image *image, size_t glyph,
                             glyph_color = (ocr->renderer
                                             .b[y*ocr->renderer.row_bytes+x/4]
                                                 >>(x%4*2))&1;
-                            printf("%ld, %ld, %ld, %ld\n", y2-y1, test_y, x_scale, x);
+#if OCR_COVERAGE_TEST
+                            printf("%ld, %ld, %ld, %ld\n", y2-y1, test_y,
+                                   x_scale, x);
                             printf("Set pixel %ld, %ld\n", ix, iy);
+#endif
 
                             if(ix >= 0 && ix < (long int)image->w &&
                                iy >= 0 && iy < (long int)image->h){
-                                if(glyph_color) image->data[iy*image->w+ix] = IMAGE_RGBAINT(0, 255, 0, 0);
+#if OCR_COVERAGE_TEST
+                                if(glyph_color){
+                                    image->data[iy*image->w+ix] =
+                                                IMAGE_RGBAINT(0, 255, 0, 0);
+                                }
+#endif
                                 image_color = (image->data[iy*image->w+ix]&
                                                IMAGE_RGBAINT(255, 255, 255, 0))
                                               != 0;
@@ -374,7 +382,7 @@ static long int test_glyph(struct ocr *ocr, struct image *image, size_t glyph,
 
                             score += (glyph_color&image_color)-
                                      (image_color&glyph_color);
-                            not_matching += glyph_color == image_color;
+                            not_matching += glyph_color != image_color;
                         }
                     }
 
@@ -409,7 +417,7 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
                         struct image *image) {
     size_t x;
 
-#if 0
+#if !OCR_COVERAGE_TEST
     for(x=bb->x1;x<bb->x2;){
 #else
     x=bb->x1;
@@ -417,7 +425,7 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
 #endif
         int rc;
 
-        unsigned long int least_not_matching;
+        unsigned long int least_not_matching = ULONG_MAX;
 
         long best_x_offset;
         long best_y_offset;
@@ -453,7 +461,7 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
         /* TODO: Make a faster but less accurate version by performing a
          * slightly modified version of binary search using the ocr->coverage
          * array. */
-#if 0
+#if !OCR_COVERAGE_TEST
         for(i=0;i<ocr->font->glyph_count;i++){
 #else
         i = font_lookup_char(ocr->font, 'a')-ocr->font->glyphs;
@@ -472,11 +480,14 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
 
             (void)score;
 
-            printf("Testing glyph %u/%u\n", i, ocr->font->glyph_count);
+            printf("Testing glyph %u/%u -- char code: %08x\n", i,
+                   ocr->font->glyph_count, ocr->font->glyphs[i].code);
 
             score = test_glyph(ocr, image, i, x, bb->y1, bb->y2,
                                &x_offset, &y_offset, &x_scale, &y_scale,
                                &advance, &not_matching);
+
+            printf("Not matching: %lu\n", not_matching);
 
             if(not_matching == 0){
                 if((rc = add_char(bb, ocr->font->glyphs[i].code,
@@ -497,7 +508,7 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
                 best_x_scale = x_scale;
                 best_y_scale = y_scale;
 
-                best_advance = ocr->renderer.advance_width;
+                best_advance = advance;
             }
         }
 
@@ -505,6 +516,8 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
                           best_y_offset, best_x_scale, best_y_scale))){
             return rc;
         }
+
+        printf("%ld, %ld\n", best_advance, best_x_offset*best_x_scale/256);
 
         dx = best_advance+best_x_offset*best_x_scale/256;
         if(!dx) dx = 1;
