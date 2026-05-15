@@ -104,6 +104,7 @@ int ocr_init(struct ocr *ocr, struct font *font, int dpi, int max_size) {
     ocr->char_treshold = 0;
     ocr->min_height = 5;
 
+#if 0
     ocr->x_offset_min = -1;
     ocr->x_offset_max = +1;
 
@@ -115,6 +116,19 @@ int ocr_init(struct ocr *ocr, struct font *font, int dpi, int max_size) {
 
     ocr->y_scale_min = 192;
     ocr->y_scale_max = 320;
+#else
+    ocr->x_offset_min = 0;
+    ocr->x_offset_max = 0;
+
+    ocr->y_offset_min = 0;
+    ocr->y_offset_max = 0;
+
+    ocr->x_scale_min = 320;
+    ocr->x_scale_max = 320;
+
+    ocr->y_scale_min = 320;
+    ocr->y_scale_max = 320;
+#endif
 
     ocr->scale_step = 16;
 
@@ -305,19 +319,19 @@ static long int test_glyph(struct ocr *ocr, struct image *image, size_t glyph,
     }
 
     /* NOTE: This is very costly */
-    for(sy=ocr->y_offset_min;sy<ocr->y_offset_max;sy++){
+    for(sy=ocr->y_offset_min;sy<=ocr->y_offset_max;sy++){
         long int sx;
 
-        for(sx=ocr->x_offset_min;sx<ocr->x_offset_max;sx++){
+        for(sx=ocr->x_offset_min;sx<=ocr->x_offset_max;sx++){
             long int y_scale;
 
             for(y_scale=ocr->y_scale_min;
-                y_scale<ocr->y_scale_max;
+                y_scale<=ocr->y_scale_max;
                 y_scale+=ocr->scale_step){
                 long int x_scale;
 
                 for(x_scale=ocr->x_scale_min;
-                    x_scale<ocr->x_scale_max;
+                    x_scale<=ocr->x_scale_max;
                     x_scale+=ocr->scale_step){
                     long int y;
 
@@ -347,8 +361,12 @@ static long int test_glyph(struct ocr *ocr, struct image *image, size_t glyph,
                             glyph_color = (ocr->renderer
                                             .b[y*ocr->renderer.row_bytes+x/4]
                                                 >>(x%4*2))&1;
+                            printf("%ld, %ld, %ld, %ld\n", y2-y1, test_y, x_scale, x);
+                            printf("Set pixel %ld, %ld\n", ix, iy);
+
                             if(ix >= 0 && ix < (long int)image->w &&
                                iy >= 0 && iy < (long int)image->h){
+                                if(glyph_color) image->data[iy*image->w+ix] = IMAGE_RGBAINT(0, 255, 0, 0);
                                 image_color = (image->data[iy*image->w+ix]&
                                                IMAGE_RGBAINT(255, 255, 255, 0))
                                               != 0;
@@ -391,7 +409,12 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
                         struct image *image) {
     size_t x;
 
+#if 0
     for(x=bb->x1;x<bb->x2;){
+#else
+    x=bb->x1;
+    {
+#endif
         int rc;
 
         unsigned long int least_not_matching;
@@ -430,7 +453,12 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
         /* TODO: Make a faster but less accurate version by performing a
          * slightly modified version of binary search using the ocr->coverage
          * array. */
+#if 0
         for(i=0;i<ocr->font->glyph_count;i++){
+#else
+        i = font_lookup_char(ocr->font, 'a')-ocr->font->glyphs;
+        {
+#endif
             unsigned long int not_matching;
 
             long int score;
