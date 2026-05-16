@@ -289,6 +289,8 @@ static int add_char(struct ocr_boundingbox *bb,
     return OE_NONE;
 }
 
+#define ABS(x) ((x) < 0 ? -(x) : (x))
+
 static long int test_glyph(struct ocr *ocr, struct image *image, size_t glyph,
                            size_t x1, size_t y1, size_t y2, size_t min_w,
                            long int *x_offset_out, long int *y_offset_out,
@@ -297,7 +299,7 @@ static long int test_glyph(struct ocr *ocr, struct image *image, size_t glyph,
                            unsigned long int *not_matching_out) {
     long int sy;
 
-    long int best_score = 0;
+    long int best_score = LONG_MAX;
     unsigned long int least_not_matching = ULONG_MAX;
 
     long int best_x_offset = 0;
@@ -400,7 +402,12 @@ static long int test_glyph(struct ocr *ocr, struct image *image, size_t glyph,
                         }
                     }
 
+#if 0
                     if(not_matching < least_not_matching){
+#else
+                    if(ABS(score) < ABS(best_score) &&
+                       not_matching < least_not_matching){
+#endif
                         least_not_matching = not_matching;
                         best_score = score;
                         best_x_offset = sx;

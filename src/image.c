@@ -256,7 +256,7 @@ int image_load(struct image *img, char *file) {
                     return IE_MEM;
                 }
 
-                padding = width%4;
+                padding = width*(bpp/8)%4 ? 4-width*(bpp/8)%4 : 0;
 
                 if(bpp >= 24){
                     if(fseek(fp, data_offset, SEEK_SET)){
