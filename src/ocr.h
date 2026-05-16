@@ -72,6 +72,8 @@ struct ocr {
     size_t char_treshold;
     size_t min_height;
 
+    size_t min_w_tolerance;
+
     long int x_offset_min;
     long int x_offset_max;
 

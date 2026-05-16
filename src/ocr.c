@@ -44,6 +44,8 @@
 
 #define SIZE_INC 64
 
+#define OCR_COVERAGE_TEST 0
+
 char *ocr_get_error_str(int error) {
     char *errors[] = {
         OCR_ERROR_X(STR, STR_LAST)
@@ -104,6 +106,8 @@ int ocr_init(struct ocr *ocr, struct font *font, int dpi, int max_size) {
     ocr->char_treshold = 0;
     ocr->min_height = 5;
 
+    ocr->min_w_tolerance = 2;
+
 #if !OCR_COVERAGE_TEST
     ocr->x_offset_min = -1;
     ocr->x_offset_max = +1;
@@ -111,11 +115,11 @@ int ocr_init(struct ocr *ocr, struct font *font, int dpi, int max_size) {
     ocr->y_offset_min = -1;
     ocr->y_offset_max = +1;
 
-    ocr->x_scale_min = 240;
-    ocr->x_scale_max = 272;
+    ocr->x_scale_min = 192;
+    ocr->x_scale_max = 320;
 
-    ocr->y_scale_min = 240;
-    ocr->y_scale_max = 272;
+    ocr->y_scale_min = 192;
+    ocr->y_scale_max = 320;
 #else
     ocr->x_offset_min = 0;
     ocr->x_offset_max = 0;
@@ -123,11 +127,11 @@ int ocr_init(struct ocr *ocr, struct font *font, int dpi, int max_size) {
     ocr->y_offset_min = 0;
     ocr->y_offset_max = 0;
 
-    ocr->x_scale_min = 320;
-    ocr->x_scale_max = 320;
+    ocr->x_scale_min = 256;
+    ocr->x_scale_max = 256;
 
-    ocr->y_scale_min = 320;
-    ocr->y_scale_max = 320;
+    ocr->y_scale_min = 256;
+    ocr->y_scale_max = 256;
 #endif
 
     ocr->scale_step = 16;
@@ -286,14 +290,15 @@ static int add_char(struct ocr_boundingbox *bb,
 }
 
 static long int test_glyph(struct ocr *ocr, struct image *image, size_t glyph,
-                           size_t x1, size_t y1, size_t y2,
+                           size_t x1, size_t y1, size_t y2, size_t min_w,
                            long int *x_offset_out, long int *y_offset_out,
                            long int *x_scale_out, long int *y_scale_out,
-                           long int *advance_out, size_t *not_matching_out) {
+                           long int *advance_out,
+                           unsigned long int *not_matching_out) {
     long int sy;
 
     long int best_score = 0;
-    size_t least_not_matching = ~(size_t)0;
+    unsigned long int least_not_matching = ULONG_MAX;
 
     long int best_x_offset = 0;
     long int best_y_offset = 0;
@@ -344,23 +349,32 @@ static long int test_glyph(struct ocr *ocr, struct image *image, size_t glyph,
                                        (y2-y1)/
                                        (256*ocr->renderer.glyph_height);
 
-                    size_t not_matching = 0;
+                    unsigned long int not_matching = 0;
 
-                    for(y=0;y<ocr->renderer.glyph_height;y++){
+                    long int w = ocr->renderer.glyph_width*x_scale*(y2-y1)/
+                                 (256*ocr->renderer.glyph_height);
+                    long int h = y_scale*(y2-y1)/256;
+
+                    if(w < (long int)min_w || !h) continue;
+
+                    for(y=0;y<h;y++){
                         long int x;
 
-                        for(x=0;x<ocr->renderer.glyph_width;x++){
+                        for(x=0;x<w;x++){
                             unsigned char glyph_color = 0;
                             unsigned char image_color = 0;
 
-                            long int ix = test_x+x*x_scale*(y2-y1)/
-                                          (256*ocr->renderer.glyph_height);
-                            long int iy = test_y+y*y_scale*(y2-y1)/
-                                          (256*ocr->renderer.glyph_height);
+                            long int gx = (x*256*ocr->renderer.glyph_height)/
+                                          (x_scale*(y2-y1));
+                            long int gy = (y*256*ocr->renderer.glyph_height)/
+                                          (y_scale*(y2-y1));
+
+                            long int ix = test_x+x;
+                            long int iy = test_y+y;
 
                             glyph_color = (ocr->renderer
-                                            .b[y*ocr->renderer.row_bytes+x/4]
-                                                >>(x%4*2))&1;
+                                            .b[gy*ocr->renderer.row_bytes+gx/4]
+                                                >>(gx%4*2))&1;
 #if OCR_COVERAGE_TEST
                             printf("%ld, %ld, %ld, %ld\n", y2-y1, test_y,
                                    x_scale, x);
@@ -423,7 +437,7 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
     x=bb->x1;
     {
 #endif
-        int rc;
+        size_t min_w;
 
         unsigned long int least_not_matching = ULONG_MAX;
 
@@ -439,6 +453,8 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
         font_u32_t glyph;
 
         font_u32_t i;
+
+        int rc;
 
         printf("X: %lu\n", x);
 
@@ -457,6 +473,28 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
                 break;
             }
         }while(1);
+
+        min_w = x;
+
+        do{
+            size_t colored_pixels = 0;
+            size_t y;
+
+            for(y=bb->y1;y<bb->y2;y++){
+                if((image->data[y*image->w+min_w]&
+                    IMAGE_RGBAINT(255, 255, 255, 0)) !=
+                   IMAGE_RGBAINT(255, 255, 255, 0)) colored_pixels++;
+            }
+            if(colored_pixels*256/(bb->y2-bb->y1) > ocr->char_treshold){
+                min_w++;
+            }else{
+                break;
+            }
+        }while(1);
+
+        min_w -= x;
+
+        if(min_w > ocr->min_w_tolerance) min_w -= ocr->min_w_tolerance;
 
         /* TODO: Make a faster but less accurate version by performing a
          * slightly modified version of binary search using the ocr->coverage
@@ -480,14 +518,18 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
 
             (void)score;
 
+#if OCR_DEBUG
             printf("Testing glyph %u/%u -- char code: %08x\n", i,
                    ocr->font->glyph_count, ocr->font->glyphs[i].code);
+#endif
 
-            score = test_glyph(ocr, image, i, x, bb->y1, bb->y2,
+            score = test_glyph(ocr, image, i, x, bb->y1, bb->y2, min_w,
                                &x_offset, &y_offset, &x_scale, &y_scale,
                                &advance, &not_matching);
 
+#if OCR_DEBUG
             printf("Not matching: %lu\n", not_matching);
+#endif
 
             if(not_matching == 0){
                 if((rc = add_char(bb, ocr->font->glyphs[i].code,

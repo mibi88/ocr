@@ -230,7 +230,7 @@ static int ocr(int argc, char **argv) {
 
     int rc;
 
-    int size = 50;
+    int size = 200;
 
     if(argc < 3){
         fprintf(stderr, "USAGE: %s FONT IMAGE\n", *argv);
