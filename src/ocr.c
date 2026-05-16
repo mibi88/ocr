@@ -44,7 +44,9 @@
 
 #define SIZE_INC 64
 
-#define OCR_COVERAGE_TEST 0
+#define OCR_COVERAGE_TEST 1
+
+/* FIXME: This piece of code is really messy! */
 
 char *ocr_get_error_str(int error) {
     char *errors[] = {
