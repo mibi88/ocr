@@ -44,7 +44,8 @@
 
 #define SIZE_INC 64
 
-#define OCR_COVERAGE_TEST 0
+#define OCR_COVERAGE_TEST       1
+#define OCR_COVERAGE_TEST_CHAR  'S'
 
 /* FIXME: This piece of code is really messy! */
 
@@ -511,7 +512,9 @@ static int process_line(struct ocr *ocr, struct ocr_boundingbox *bb,
 #if !OCR_COVERAGE_TEST
         for(i=0;i<ocr->font->glyph_count;i++){
 #else
-        i = font_lookup_char(ocr->font, 'a')-ocr->font->glyphs;
+        /* FIXME: Handle errors. */
+        i = font_lookup_char(ocr->font, OCR_COVERAGE_TEST_CHAR)-
+            ocr->font->glyphs;
         {
 #endif
             unsigned long int not_matching;
@@ -593,7 +596,12 @@ int ocr_recognise(struct ocr *ocr, struct image *image) {
 
     if((rc = find_bbs(ocr, image))) return rc;
 
+#if !OCR_COVERAGE_TEST
     for(i=0;i<ocr->boundingbox_count;i++){
+#else
+    i = 0;
+    if(i < ocr->boundingbox_count){
+#endif
         struct ocr_boundingbox *bb;
 
         bb = ocr->boundingboxes+i;
