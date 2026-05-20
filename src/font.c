@@ -1681,6 +1681,9 @@ int font_renderer_init(struct font_renderer *renderer, struct font *font,
     renderer->dpi = dpi;
     renderer->max_size = max_size;
 
+    renderer->max_ascender = font_scale_size(font, dpi, max_size,
+                                             font->max_ascender);
+
     return FE_NONE;
 }
 
@@ -1737,13 +1740,13 @@ void font_renderer_glyph(struct font_renderer *renderer,
 
         x1 = font_scale_size(font, renderer->dpi, size, glyph->points[b].x);
         y1 = font_scale_size(font, renderer->dpi, size,
-                             glyph->ymax-glyph->ymin-glyph->points[b].y);
+                             glyph->ymax-glyph->points[b].y);
 
         for(n=b+1;n<=glyph->contour_ends[i];n++){
             x2 = font_scale_size(font, renderer->dpi, size,
                                  glyph->points[n].x);
             y2 = font_scale_size(font, renderer->dpi, size,
-                                 glyph->ymax-glyph->ymin-glyph->points[n].y);
+                                 glyph->ymax-glyph->points[n].y);
 
             if(!glyph->points[n].on_curve){
                 cx = x2;
@@ -1784,7 +1787,7 @@ void font_renderer_glyph(struct font_renderer *renderer,
             x2 = font_scale_size(font, renderer->dpi, size,
                                  glyph->points[b].x);
             y2 = font_scale_size(font, renderer->dpi, size,
-                                 glyph->ymax-glyph->ymin-glyph->points[b].y);
+                                 glyph->ymax-glyph->points[b].y);
 
 #if !FILL
             SET(x1, y1, y1 > y2);
@@ -1798,7 +1801,7 @@ void font_renderer_glyph(struct font_renderer *renderer,
             x2 = font_scale_size(font, renderer->dpi, size,
                                  glyph->points[b].x);
             y2 = font_scale_size(font, renderer->dpi, size,
-                                 glyph->ymax-glyph->ymin-glyph->points[b].y);
+                                 glyph->ymax-glyph->points[b].y);
 
 #if !FILL
             SET(x1, y1, y1 > y2);
@@ -1841,6 +1844,7 @@ void font_renderer_glyph(struct font_renderer *renderer,
                                          glyph->ymax);
     renderer->glyph_width = font_scale_size(font, renderer->dpi, size,
                                             glyph->xmax-glyph->xmin);
+    renderer->x = font_scale_size(font, renderer->dpi, size, -glyph->xmin);
     renderer->advance_width = font_scale_size(font, renderer->dpi, size,
                                               glyph->advance_width);
     renderer->left_side_bearing = font_scale_size(font, renderer->dpi, size,

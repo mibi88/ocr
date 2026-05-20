@@ -128,10 +128,12 @@ struct font_renderer {
     font_u32_t h;
 
     font_s32_t glyph_width;
+    font_s32_t glyph_height;
+    font_s32_t x;
     font_s32_t advance_width;
     font_s32_t left_side_bearing;
     font_s32_t baseline;
-    font_u32_t glyph_height;
+    font_s32_t max_ascender;
 };
 
 #define FONT_ERROR_X(x, l) \

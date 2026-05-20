@@ -44,7 +44,7 @@
 
 #define SIZE_INC 64
 
-#define OCR_COVERAGE_TEST 1
+#define OCR_COVERAGE_TEST 0
 
 /* FIXME: This piece of code is really messy! */
 

@@ -114,7 +114,7 @@ static int debug_font(int argc, char **argv) {
     setlocale(LC_CTYPE, "");
 
     if(argc < 4){
-        fprintf(stderr, "USAGE: %s TTF_FILE CHAR OUPUT_IMAGE\n", *argv);
+        fprintf(stderr, "USAGE: %s TTF_FILE STRING OUPUT_IMAGE\n", *argv);
 
         return 1;
     }
@@ -194,13 +194,9 @@ static int debug_font(int argc, char **argv) {
         }
 
         font_renderer_glyph(&renderer, &font, glyph, size);
-        font_renderer_to_image(&renderer, &image, renderer.x+x+
-                               font_scale_size(&font, dpi, size,
-                                               glyph->left_side_bearing),
-                               font_scale_size(&font, dpi, size,
-                                               font.max_ascender+font.line_gap-
-                                               font.max_descender)-
-                               renderer.baseline);
+        font_renderer_to_image(&renderer, &image,
+                               x+renderer.x+renderer.left_side_bearing,
+                               renderer.max_ascender-renderer.baseline);
 
         x += font_scale_size(&font, dpi, size, glyph->advance_width);
     }
