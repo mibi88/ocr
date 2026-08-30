@@ -1688,18 +1688,12 @@ static void curve(struct font_renderer *renderer,
     for(i=1;i<=STEPS;i++){
         font_s16_t ix2, iy2;
 
-#if 1
         ix2 = (x1*(STEPS-i)*(STEPS-i)+
                2*cx*i*(STEPS-i)+
                x2*i*i)/(STEPS*STEPS);
         iy2 = (y1*(STEPS-i)*(STEPS-i)+
                2*cy*i*(STEPS-i)+
                y2*i*i)/(STEPS*STEPS);
-#else
-        float t = (float)i/STEPS;
-        ix2 = x1*(1-t)*(1-t)+2*cx*t*(1-t)+x2*t*t;
-        iy2 = y1*(1-t)*(1-t)+2*cy*t*(1-t)+y2*t*t;
-#endif
 
         line(renderer, ix1, iy1, ix2, iy2);
 
