@@ -1562,53 +1562,94 @@ static void line(struct font_renderer *renderer,
         }
     }else{
         if(x1 < x2){
-            font_s16_t dy2 = ABS(y2-y1)*2;
-            font_s16_t dx = x2-x1;
-            font_s16_t e = dx;
-            font_s16_t a = y1 < y2 ? 1 : -1;
-            dx *= 2;
+            if(y1 < y2){
+                font_s16_t dy2 = ABS(y2-y1)*2;
+                font_s16_t dx = x2-x1;
+                font_s16_t e = dx;
+                dx *= 2;
 
 #if FILL
-            if(dir) SET(x1, y1, dir);
-#endif
-
-            for(;x1<x2;x1++){
-#if !FILL
                 SET(x1, y1, dir);
 #endif
-                e += dy2;
-                if(e >= dx){
-                    y1 += a;
-#if FILL
-                    if(y1 != y2 || !dir) SET(x1+1, y1, dir);
+
+                for(;x1<x2;x1++){
+#if !FILL
+                    SET(x1, y1, dir);
 #endif
-                    e -= dx;
+                    e += dy2;
+
+                    if(e >= dx){
+                        y1++;
+#if FILL
+                        if(y1 != y2) SET(x1+1, y1, dir);
+#endif
+                        e -= dx;
+                    }
+                }
+            }else{
+                font_s16_t dy2 = ABS(y2-y1)*2;
+                font_s16_t dx = x2-x1;
+                font_s16_t e = dx;
+                dx *= 2;
+
+                for(;x1<x2;x1++){
+#if !FILL
+                    SET(x1, y1, dir);
+#endif
+                    e += dy2;
+                    if(e >= dx){
+                        y1--;
+#if FILL
+                        SET(x1+1, y1, dir);
+#endif
+                        e -= dx;
+                    }
                 }
             }
         }else{
-            font_s16_t dy2 = ABS(y2-y1)*2;
-            font_s16_t dx = x1-x2;
-            font_s16_t e = dx;
-            font_s16_t a = y1 < y2 ? 1 : -1;
-            font_s16_t y = y1;
-            dx *= 2;
+            if(y1 < y2){
+                font_s16_t dy2 = ABS(y2-y1)*2;
+                font_s16_t dx = x1-x2;
+                font_s16_t e = dx;
+                dx *= 2;
 
-            for(;x1>x2;x1--){
+                for(;x1>x2;x1--){
 #if !FILL
+                    SET(x1, y1, dir);
+#endif
+                    e += dy2;
+                    if(e >= dx){
+#if FILL
+                        SET(x1, y1, dir);
+#endif
+                        y1++;
+                        e -= dx;
+                    }
+                }
+            }else{
+                font_s16_t dy2 = ABS(y2-y1)*2;
+                font_s16_t dx = x1-x2;
+                font_s16_t e = dx;
+                font_s16_t y = y1;
+                dx *= 2;
+
+                for(;x1>x2;x1--){
+#if !FILL
+                    SET(x1, y1, dir);
+#endif
+                    e += dy2;
+                    if(e >= dx){
+#if FILL
+                        if(y1 != y) SET(x1, y1, dir);
+#endif
+                        y1--;
+                        e -= dx;
+                    }
+                }
+#if FILL
                 SET(x1, y1, dir);
 #endif
-                e += dy2;
-                if(e >= dx){
-#if FILL
-                    if(y1 != y || dir) SET(x1, y1, dir);
-#endif
-                    y1 += a;
-                    e -= dx;
-                }
             }
-#if FILL
-            if(!dir) SET(x1, y1, dir);
-#endif
         }
     }
 #if !FILL
