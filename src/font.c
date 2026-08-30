@@ -1334,7 +1334,6 @@ LOAD:
                            glyph_index+(end_code-start_code) >= glyph_count){
                             ON_ERROR();
 
-                            puts("err3");
                             return FE_CMAP_INVALID_GLYPH_INDEX;
                         }
 
@@ -1785,8 +1784,6 @@ void font_renderer_glyph(struct font_renderer *renderer,
             }
 
             if(has_control_point){
-                puts("curve");
-
 #if !FILL
                 SET(x1, y1, y1 > y2);
 #endif
