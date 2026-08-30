@@ -999,6 +999,8 @@ LOAD:
     {
         /* Read the cmap table */
 
+        /* FIXME: I think I'm loading some cmap incorrectly. */
+
         unsigned short int subtables;
         unsigned short int i;
 
@@ -1754,6 +1756,8 @@ void font_renderer_glyph(struct font_renderer *renderer,
 
         unsigned char has_control_point = 0;
 
+        /* FIXME: I think I'm handling curves incorrectly. */
+
         x1 = font_scale_size(font, renderer->dpi, size, glyph->points[b].x);
         y1 = font_scale_size(font, renderer->dpi, size,
                              glyph->ymax-glyph->points[b].y);
@@ -1784,9 +1788,6 @@ void font_renderer_glyph(struct font_renderer *renderer,
             }
 
             if(has_control_point){
-#if !FILL
-                SET(x1, y1, y1 > y2);
-#endif
 #if !CURVES
                 line(renderer, x1, y1, cx, cy);
                 line(renderer, cx, cy, x2, y2);
@@ -1796,9 +1797,6 @@ void font_renderer_glyph(struct font_renderer *renderer,
 
                 has_control_point = 0;
             }else{
-#if !FILL
-                SET(x1, y1, y1 > y2);
-#endif
                 line(renderer, x1, y1, x2, y2);
             }
 
@@ -1812,9 +1810,6 @@ void font_renderer_glyph(struct font_renderer *renderer,
             y2 = font_scale_size(font, renderer->dpi, size,
                                  glyph->ymax-glyph->points[b].y);
 
-#if !FILL
-            SET(x1, y1, y1 > y2);
-#endif
 #if !CURVES
             line(renderer, x1, y1, cx, cy);
             line(renderer, cx, cy, x2, y2);
@@ -1827,9 +1822,6 @@ void font_renderer_glyph(struct font_renderer *renderer,
             y2 = font_scale_size(font, renderer->dpi, size,
                                  glyph->ymax-glyph->points[b].y);
 
-#if !FILL
-            SET(x1, y1, y1 > y2);
-#endif
             line(renderer, x1, y1, x2, y2);
         }
 
@@ -1843,7 +1835,10 @@ void font_renderer_glyph(struct font_renderer *renderer,
             unsigned char state = 0;
             unsigned char init = 0;
 
-            /* TODO: Fill things correctly */
+            /* FIXME: The glyphs are filled with the even-odd rule for now,
+             *        instead of the non-zero winding rule that should be used
+             *        instead.
+             */
             (void)init;
 
             for(x=0;x<renderer->w;x++){
