@@ -1519,10 +1519,10 @@ static void line(struct font_renderer *renderer,
                  font_s16_t x2, font_s16_t y2) {
 #if FILL
     unsigned char dir = y1 < y2;
-    unsigned char ok = y1 == y2;
 
     if(y1 == y2) return;
 #endif
+
     if(ABS(x2-x1) < ABS(y2-y1)){
         if(y1 < y2){
             font_s16_t dx2 = ABS(x2-x1)*2;
@@ -1532,9 +1532,6 @@ static void line(struct font_renderer *renderer,
             dy *= 2;
 
             for(;y1<y2;y1++){
-#if FILL
-                if(y1 != y2 || ok)
-#endif
                 SET(x1, y1, dir);
                 e += dx2;
                 if(e >= dy){
@@ -1550,15 +1547,17 @@ static void line(struct font_renderer *renderer,
             dy *= 2;
 
             for(;y1>y2;y1--){
-#if FILL
-                if(y1 != y2 || ok)
-#endif
+#if !FILL
                 SET(x1, y1, dir);
+#endif
                 e += dx2;
                 if(e >= dy){
                     x1 += a;
                     e -= dy;
                 }
+#if FILL
+                SET(x1, y1-1, dir);
+#endif
             }
         }
     }else{
@@ -1570,7 +1569,7 @@ static void line(struct font_renderer *renderer,
             dx *= 2;
 
 #if FILL
-            SET(x1, y1, dir);
+            if(dir) SET(x1, y1, dir);
 #endif
 
             for(;x1<x2;x1++){
@@ -1581,7 +1580,7 @@ static void line(struct font_renderer *renderer,
                 if(e >= dx){
                     y1 += a;
 #if FILL
-                    if(y1 != y2 || ok) SET(x1, y1, dir);
+                    if(y1 != y2 || !dir) SET(x1+1, y1, dir);
 #endif
                     e -= dx;
                 }
@@ -1591,11 +1590,8 @@ static void line(struct font_renderer *renderer,
             font_s16_t dx = x1-x2;
             font_s16_t e = dx;
             font_s16_t a = y1 < y2 ? 1 : -1;
+            font_s16_t y = y1;
             dx *= 2;
-
-#if FILL
-            SET(x1, y1, dir);
-#endif
 
             for(;x1>x2;x1--){
 #if !FILL
@@ -1603,13 +1599,16 @@ static void line(struct font_renderer *renderer,
 #endif
                 e += dy2;
                 if(e >= dx){
-                    y1 += a;
 #if FILL
-                    if(y1 != y2 || ok) SET(x1, y1, dir);
+                    if(y1 != y || dir) SET(x1, y1, dir);
 #endif
+                    y1 += a;
                     e -= dx;
                 }
             }
+#if FILL
+            if(!dir) SET(x1, y1, dir);
+#endif
         }
     }
 #if !FILL

@@ -41,7 +41,7 @@
 #include "ocr.h"
 
 #define MAIN_DEBUG_IMAGE    0
-#define MAIN_DEBUG_FONT     0
+#define MAIN_DEBUG_FONT     1
 
 void e(void) {
     getchar();
