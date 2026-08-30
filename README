@@ -1,0 +1,11 @@
+                            A small toy OCR
+                               by Mibi88
+
+A small toy OCR I started coding a while ago. It is broken and does not work.
+However, parts of it work (more or less), and may be interesting, for instance
+text rendering of TrueType fonts.
+
+Different parts of it can be enabled by the defines in src/main.c. You may want
+to select the thing you want.
+
+It only depends on the libc, it is very portable ANSI C.
