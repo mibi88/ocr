@@ -103,13 +103,14 @@ static int debug_font(int argc, char **argv) {
     size_t len;
     size_t i;
     int char_len;
-    int w;
+    int line_w;
+    int w, h;
     int rc;
 
     int size = 150;
     int dpi = 72;
 
-    int x;
+    int x, y;
 
     setlocale(LC_CTYPE, "");
 
@@ -158,18 +159,30 @@ static int debug_font(int argc, char **argv) {
     str[len] = 0;
 
     w = 0;
+    line_w = 0;
+    h = renderer.h;
     for(i=0;str[i];i++){
         wchar_t c = str[i];
+
+        if(c == '\n'){
+            if(line_w > w) w = line_w;
+            line_w = 0;
+
+            h += renderer.h;
+
+            continue;
+        }
 
         /* TODO: Support UTF-8. */
         glyph = font_lookup_char(&font, c);
 
         if(glyph == NULL) glyph = font.glyphs;
 
-        w += font_scale_size(&font, dpi, size, glyph->advance_width);
+        line_w += font_scale_size(&font, dpi, size, glyph->advance_width);
     }
+    if(line_w > w) w = line_w;
 
-    if((rc = image_create(&image, w, renderer.h, dpi))){
+    if((rc = image_create(&image, w, h, dpi))){
         puts(image_get_error_str(rc));
 
         font_renderer_free(&renderer);
@@ -181,8 +194,16 @@ static int debug_font(int argc, char **argv) {
     memset(image.data, 0xFF, image.w*image.h*sizeof(pixel_t));
 
     x = 0;
+    y = 0;
     for(i=0;str[i];i++){
         wchar_t c = str[i];
+
+        if(c == '\n'){
+            x = 0;
+            y += renderer.h;
+
+            continue;
+        }
 
         /* TODO: Support UTF-8. */
         glyph = font_lookup_char(&font, c);
@@ -196,7 +217,7 @@ static int debug_font(int argc, char **argv) {
         font_renderer_glyph(&renderer, &font, glyph, size);
         font_renderer_to_image(&renderer, &image,
                                x+renderer.x+renderer.left_side_bearing,
-                               renderer.max_ascender-renderer.baseline);
+                               y+renderer.max_ascender-renderer.baseline);
 
         x += font_scale_size(&font, dpi, size, glyph->advance_width);
     }
