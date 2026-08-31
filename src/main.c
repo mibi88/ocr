@@ -232,6 +232,7 @@ static int debug_font(int argc, char **argv) {
         return 1;
     }
 
+    free(str);
     font_renderer_free(&renderer);
     font_free(&font);
     image_free(&image);

@@ -77,7 +77,10 @@ enum {
     IT_BMP
 };
 
-#define IMAGE_RGBAINT(r, g, b, a) ((b)|((g)<<8)|((r)<<16)|((a)<<24))
+#define IMAGE_RGBAINT(r, g, b, a) ((pixel_t)(b)| \
+                                  ((pixel_t)(g)<<8)| \
+                                  ((pixel_t)(r)<<16)| \
+                                  ((pixel_t)(a)<<24))
 
 char *image_get_error_str(int error);
 

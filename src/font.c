@@ -479,6 +479,11 @@ int font_load(struct font *font, char *file) {
                 glyphs[i].point_count = 0;
                 glyphs[i].loaded = 1;
 
+                glyphs[i].xmin = 0;
+                glyphs[i].ymin = 0;
+                glyphs[i].xmax = 0;
+                glyphs[i].ymax = 0;
+
                 goto CONTINUE;
             }
 
@@ -1116,6 +1121,10 @@ LOAD:
                     unsigned char *deltas;
                     unsigned char *offsets;
 
+#if DEBUG_FONT
+                    puts("Using cmap format 4!");
+#endif
+
                     if(fseek(fp, 2*2, SEEK_CUR)){
                         ON_ERROR();
 
@@ -1253,8 +1262,10 @@ LOAD:
                                 if(glyph_idx >= glyph_count){
                                     ON_ERROR();
 
+#if DEBUG_FONT
                                     printf("%08x -- %u/%u\n",
                                            m, glyph_idx, glyph_count);
+#endif
                                     return FE_CMAP_INVALID_GLYPH_INDEX;
                                 }
 
@@ -1269,8 +1280,10 @@ LOAD:
                                 if(glyph_idx >= glyph_count){
                                     ON_ERROR();
 
+#if DEBUG_FONT
                                     printf("%08x -- %u/%u\n",
                                            m, glyph_idx, glyph_count);
+#endif
                                     return FE_CMAP_INVALID_GLYPH_INDEX;
                                 }
 
@@ -1301,6 +1314,10 @@ LOAD:
                 }else if(best_format == 12){
                     font_u32_t group_count;
                     font_u32_t n;
+
+#if DEBUG_FONT
+                    puts("Using cmap format 12!");
+#endif
 
                     if(fseek(fp, 2+2*4, SEEK_CUR)){
                         ON_ERROR();
@@ -1428,7 +1445,7 @@ LOAD:
             }
 
             glyphs[i].advance_width = (b[0]<<8)|b[1];
-            glyphs[i].left_side_bearing = (b[2]<<8)|b[3];
+            glyphs[i].left_side_bearing = SIGNED((b[2]<<8)|b[3], 16);
         }
 
         advance_width = glyphs[long_h_metric_count-1].advance_width;
@@ -1443,7 +1460,7 @@ LOAD:
             }
 
             glyphs[i].advance_width = advance_width;
-            glyphs[i].left_side_bearing = (b[0]<<8)|b[1];
+            glyphs[i].left_side_bearing = SIGNED((b[0]<<8)|b[1], 16);
         }
     }
 
@@ -1513,7 +1530,7 @@ void font_free(struct font *font) {
             renderer->b[(y)*renderer->row_bytes+(x)/8] ^= 1<<((x)%8); \
         }else if((x) < 0 && \
                  (y) >= 0 && (y) < (font_s32_t)renderer->h){ \
-            renderer->b[(y)*renderer->row_bytes] |= 1; \
+            renderer->b[(y)*renderer->row_bytes] ^= 1; \
         } \
     }
 #else
@@ -1840,13 +1857,21 @@ void font_renderer_glyph(struct font_renderer *renderer,
         for(y=0;y<renderer->h;y++){
             unsigned char state = 0;
 
-            for(x=0;x<renderer->w;x++){
-                unsigned char c = (renderer->b[y*renderer->row_bytes+
-                                               x/8]>>(x%8))&1;
-                state ^= c;
+            for(x=0;x<renderer->row_bytes;x++){
+                unsigned char c = renderer->b[y*renderer->row_bytes+x];
+                if(c){
+                    unsigned char i;
+                    unsigned char n = 0;
 
-                if(state){
-                    renderer->b[y*renderer->row_bytes+x/8] |= 1<<(x%8);
+                    for(i=0xFF;i;c>>=1,i>>=1){
+                        n >>= 1;
+                        state ^= c&1;
+                        n |= state<<7;
+                    }
+
+                    renderer->b[y*renderer->row_bytes+x] = n;
+                }else if(state){
+                    renderer->b[y*renderer->row_bytes+x] = 0xFF;
                 }
             }
         }
@@ -1868,7 +1893,7 @@ void font_renderer_glyph(struct font_renderer *renderer,
 
 void font_renderer_to_image(struct font_renderer *renderer,
                             struct image *image,
-                            font_s16_t sx, font_s16_t sy) {
+                            font_s32_t sx, font_s32_t sy) {
     font_u32_t x, y;
     /* TODO: Clip the area that can be drawn on the image first */
 

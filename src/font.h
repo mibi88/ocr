@@ -188,7 +188,7 @@ void font_renderer_glyph(struct font_renderer *renderer,
                          font_u32_t size);
 void font_renderer_to_image(struct font_renderer *renderer,
                             struct image *image,
-                            font_s16_t x, font_s16_t y);
+                            font_s32_t x, font_s32_t y);
 void font_renderer_free(struct font_renderer *renderer);
 
 #endif
