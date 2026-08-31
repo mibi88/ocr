@@ -1506,25 +1506,24 @@ void font_free(struct font *font) {
 #if FILL
 #define SET(x, y, direction) \
     { \
+        (void)direction; \
+ \
         if((x) >= 0 && (x) < (font_s32_t)renderer->w && \
            (y) >= 0 && (y) < (font_s32_t)renderer->h){ \
-            renderer->b[(y)*renderer->row_bytes+ \
-                        (x)/4] ^= 1<<((x)%4*2); \
-            renderer->b[(y)*renderer->row_bytes+ \
-                        (x)/4] |= (direction)<<((x)%4*2+1); \
+            renderer->b[(y)*renderer->row_bytes+(x)/8] ^= 1<<((x)%8); \
         }else if((x) < 0 && \
                  (y) >= 0 && (y) < (font_s32_t)renderer->h){ \
             renderer->b[(y)*renderer->row_bytes] |= 1; \
-            renderer->b[(y)*renderer->row_bytes] |= (direction)<<1; \
         } \
     }
 #else
 #define SET(x, y, direction) \
     { \
+        (void)direction; \
+ \
         if((x) >= 0 && (x) < (font_s32_t)renderer->w && \
            (y) >= 0 && (y) < (font_s32_t)renderer->h){ \
-            renderer->b[(y)*renderer->row_bytes+ \
-                        (x)/4] |= (((direction)<<1)|1)<<((x)%4*2); \
+            renderer->b[(y)*renderer->row_bytes+(x)/8] |= 1<<((x)%8); \
         } \
     }
 #endif
@@ -1703,11 +1702,19 @@ static void curve(struct font_renderer *renderer,
     }
 }
 
+/* FIXME: The glyphs are filled with the even-odd rule for now, instead of the
+ *        non-zero winding rule that should be used instead. A more complex
+ *        renderer would probably be required to follow the non-zero winding
+ *        rule, so I removed the code that wasn't working, that I had written
+ *        to try to follow the non-zero winding rule. Using the even-odd rule
+ *        works well for many fonts, and I think this renderer is quite
+ *        efficient -- or at least it could be, with a few optimizations.
+ */
 int font_renderer_init(struct font_renderer *renderer, struct font *font,
                        font_u32_t dpi, font_u32_t max_size) {
     font_u32_t w = font_scale_size(font, dpi, max_size, font->xmax-font->xmin);
     font_u32_t h = font_scale_size(font, dpi, max_size, font->ymax-font->ymin);
-    font_u32_t row_bytes = w/4+(w%4 != 0);
+    font_u32_t row_bytes = w/8+(w%8 != 0);
 
     renderer->b = malloc(row_bytes*h);
     if(renderer->b == NULL){
@@ -1733,7 +1740,6 @@ int font_renderer_init(struct font_renderer *renderer, struct font *font,
     return FE_NONE;
 }
 
-/* FIXME: Fix glyph rendering */
 void font_renderer_glyph(struct font_renderer *renderer,
                          struct font *font, struct font_glyph *glyph,
                          font_u32_t size) {
@@ -1833,26 +1839,14 @@ void font_renderer_glyph(struct font_renderer *renderer,
 
         for(y=0;y<renderer->h;y++){
             unsigned char state = 0;
-            unsigned char init = 0;
-
-            /* FIXME: The glyphs are filled with the even-odd rule for now,
-             *        instead of the non-zero winding rule that should be used
-             *        instead.
-             */
-            (void)init;
 
             for(x=0;x<renderer->w;x++){
-                unsigned char c = (renderer->b[y*renderer->
-                                               row_bytes+x/4]>>(x%4*2))&3;
-                if((c&1)/* && (!init || (state&2) != (c&2))*/){
-                    state ^= 1;
-                    state &= ~2;
-                    state |= c&2;
-                    init = 1;
-                }
+                unsigned char c = (renderer->b[y*renderer->row_bytes+
+                                               x/8]>>(x%8))&1;
+                state ^= c;
 
-                if(state&1){
-                    renderer->b[y*renderer->row_bytes+x/4] |= 1<<(x%4*2);
+                if(state){
+                    renderer->b[y*renderer->row_bytes+x/8] |= 1<<(x%8);
                 }
             }
         }
@@ -1885,18 +1879,11 @@ void font_renderer_to_image(struct font_renderer *renderer,
 
             if(ix >= 0 && ix < (font_s32_t)image->w &&
                iy >= 0 && iy < (font_s32_t)image->h){
-                pixel_t c = ((renderer->b[y*renderer->
-                             row_bytes+x/4]>>(x%4*2))&1);
+                pixel_t c = (renderer->b[y*renderer->row_bytes+x/8]>>(x%8))&1;
                 if(c){
-#if DEBUG_FONT
-                    c =  c ? IMAGE_RGBAINT(0, (renderer->b[y*renderer->
-                                               row_bytes+x/4]>>(x%4*2)&2)*127,
-                                           0, 0) :
-                             IMAGE_RGBAINT(255, 255, 255, 255)
-#else
                     c = c ? IMAGE_RGBAINT(0, 0, 0, 0) :
                             IMAGE_RGBAINT(255, 255, 255, 255);
-#endif
+
                     image->data[iy*image->w+ix] = c;
                 }
             }
